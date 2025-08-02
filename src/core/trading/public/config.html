@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Configuration</title>
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+    <link rel="stylesheet" href="/shared/premium-dark-theme.css">
+    <link rel="stylesheet" href="/shared/components.css">
+    <style>
+        .currentConfig-container {
+            padding: var(--spacing-xl);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .currentConfig-header {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .currentConfig-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .currentConfig-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: var(--spacing-xl);
+        }
+
+        .currentConfig-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-xl);
+        }
+
+        @media (max-width: 1200px) {
+            .currentConfig-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .currentConfig-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+        }
+
+        .currentConfig-section.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: var(--spacing-lg);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(13, 255, 0, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        .compact-section {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .subsection-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: var(--spacing-md);
+            color: var(--text-primary);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-xl);
+        }
+
+        .status-message {
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-lg);
+            display: none;
+        }
+
+        .status-message.success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-success);
+            border: 1px solid var(--accent-success);
+        }
+
+        .status-message.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-danger);
+            border: 1px solid var(--accent-danger);
+        }
+        .status-message.warning {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+            border: 1px solid #fbbf24;
+        }
+        .status-message.info {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: 1px solid #3b82f6;
+        }
+
+        .info-box {
+            background: var(--bg-tertiary);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-lg);
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* Server status indicator */
+        .server-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            animation: none;
+        }
+
+        .status-dot.connected {
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.error {
+            background: var(--accent-red);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .strategy-params {
+            background: var(--bg-tertiary);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin-top: var(--spacing-md);
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--bg-tertiary);
+            transition: .4s;
+            border-radius: 24px;
+            border: 1px solid var(--border-default);
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-tertiary);
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--accent-success);
+            border-color: var(--accent-success);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="currentConfig-container">
+        <!-- Header -->
+        <div class="currentConfig-header">
+            <h1 class="currentConfig-title" id="currentConfigTitle">Bot Configuration</h1>
+            <div style="display: flex; align-items: center; gap: var(--spacing-lg);">
+                <div id="server-status" class="server-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Checking server...</span>
+                </div>
+                <button class="btn btn-secondary" onclick="goBack()">Back to Dashboard</button>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div id="statusMessage" class="status-message"></div>
+
+        <!-- Configuration Form -->
+        <form id="currentConfigForm">
+            <div class="currentConfig-grid">
+                <!-- Row 1: Basic Settings & Trading Hours -->
+                <div class="currentConfig-row">
+                    <!-- Basic Settings -->
+                    <div class="currentConfig-section">
+                        <h2 class="section-title">🤖 Basic Settings</h2>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Bot ID</label>
+                                <input type="text" id="botId" class="form-control" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Port</label>
+                                <input type="number" id="port" class="form-control" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <input type="text" id="description" class="form-control" placeholder="Bot description">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Instrument</label>
+                            <select id="instrument" class="form-control">
+                                <option value="">Loading instruments...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Account</label>
+                            <select id="accountId" class="form-control">
+                                <option value="">Loading accounts...</option>
+                            </select>
+                        </div>
+
+                    </div>
+
+                    <!-- Trading Hours & Execution -->
+                    <div class="currentConfig-section">
+                        <h2 class="section-title">⚡ Trading & Execution</h2>
+                        
+                        <div class="compact-section">
+                            <h3 class="subsection-title">🕐 Trading Hours</h3>
+                            <div class="form-group">
+                                <div class="toggle-container">
+                                    <label class="form-label" style="margin: 0;">Enable Trading Hours</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="tradingHoursEnabled">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Start Time</label>
+                                    <input type="time" id="startTime" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">End Time</label>
+                                    <input type="time" id="endTime" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="compact-section">
+                            <h3 class="subsection-title">📦 Order Execution</h3>
+                            <div class="info-box" style="margin-bottom: var(--spacing-md);">
+                                Bot uses market orders for immediate execution
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Max Slippage (ticks)</label>
+                                    <input type="number" id="maxSlippage" class="form-control" min="1" max="10" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Max Retries</label>
+                                    <input type="number" id="maxRetries" class="form-control" min="0" max="5" step="1">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="toggle-container">
+                                    <label class="form-label" style="margin: 0;">Retry Failed Orders</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="retryFailedOrders">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Strategy Settings - Full Width -->
+                <div class="currentConfig-section full-width">
+                    <h2 class="section-title">📊 Strategy Configuration</h2>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Strategy Type</label>
+                        <select id="strategyType" class="form-control" onchange="updateStrategyParams(currentConfig)">
+                            <option value="EMA_RETRACE">EMA 9 Retracement Scalping</option>
+                            <option value="ORB_RUBBER_BAND">Opening Range Breakout + Rubber Band Reversal</option>
+                        </select>
+                    </div>
+
+                    <div id="strategyParams" class="strategy-params">
+                        <!-- Dynamic strategy parameters -->
+                    </div>
+                </div>
+
+                <!-- Exit Management - Full Width -->
+                <div class="currentConfig-section full-width">
+                    <h2 class="section-title">🎯 Exit Management</h2>
+                    
+                    <div class="info-box" style="margin-bottom: var(--spacing-lg);">
+                        <strong>⚡ Strategy-Managed Exits</strong><br>
+                        Stop Loss and Take Profit are automatically calculated by each strategy:
+                        <br>• <strong>EMA Strategy:</strong> SL at slow EMA + buffer ticks, TP at currentConfigurable R:R ratio
+                        <br>• <strong>ORB Strategy:</strong> SL at OR boundary + buffer %, TP at 3x OR range
+                    </div>
+
+                    <div class="currentConfig-row">
+                        <!-- Basic Risk Settings -->
+                        <div class="compact-section">
+                            <h3 class="subsection-title">💰 Position Sizing</h3>
+                            <div class="form-group">
+                                <label class="form-label">Dollar Risk Per Trade</label>
+                                <input type="number" id="dollarRiskPerTrade" class="form-control" min="50" max="1000" step="50">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Max Consecutive Losses</label>
+                                <input type="number" id="maxConsecutiveLosses" class="form-control" min="1" max="10" step="1">
+                            </div>
+                        </div>
+
+                        <!-- Breakeven Management -->
+                        <div class="compact-section">
+                            <h3 class="subsection-title">📈 Breakeven Management</h3>
+                            <div class="form-group">
+                                <div class="toggle-container">
+                                    <label class="form-label" style="margin: 0;">Move to Breakeven</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="moveToBreakeven">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Breakeven Trigger (R-multiple)</label>
+                                <input type="number" id="breakevenTrigger" class="form-control" min="1" max="3" step="0.1">
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    Moves stop to breakeven at this profit level (e.g., 1.5R = 1.5x risk)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="currentConfig-row" style="margin-top: var(--spacing-lg);">
+                        <!-- Partial Exits -->
+                        <div class="compact-section">
+                            <h3 class="subsection-title">🎯 Partial Exits</h3>
+                            <div class="form-group">
+                                <div class="toggle-container">
+                                    <label class="form-label" style="margin: 0;">Enable Partial Exits</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="partialExitsEnabled" onchange="togglePartialExits()">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    Only available when trading more than 1 contract
+                                </div>
+                            </div>
+                            <div id="partialExitsSection" style="display: none;">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Exit 1 %</label>
+                                        <input type="number" id="partialExit1Pct" class="form-control" min="0" max="100" step="10">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Target (R)</label>
+                                        <input type="number" id="partialExit1Target" class="form-control" min="0.5" max="5" step="0.1">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Exit 2 %</label>
+                                        <input type="number" id="partialExit2Pct" class="form-control" min="0" max="100" step="10">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Target (R)</label>
+                                        <input type="number" id="partialExit2Target" class="form-control" min="0.5" max="5" step="0.1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Trailing Stop -->
+                        <div class="compact-section">
+                            <h3 class="subsection-title">📈 Trailing Stop</h3>
+                            <div class="form-group">
+                                <div class="toggle-container">
+                                    <label class="form-label" style="margin: 0;">Enable Trailing Stop</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="trailingStopEnabled" onchange="toggleTrailingStop()">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    Bot-managed trailing stop that adjusts both SL and TP as price moves favorably
+                                </div>
+                            </div>
+                            <div id="trailingStopSection" style="display: none;">
+                                <div class="form-group">
+                                    <label class="form-label">Activation Trigger (R-multiple)</label>
+                                    <input type="number" id="trailingStopTrigger" class="form-control" min="0.5" max="5" step="0.1">
+                                    <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                        Profit level to activate (e.g., 1R = 1x risk)
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Trail Distance (ticks)</label>
+                                    <input type="number" id="trailingStopDistance" class="form-control" min="1" max="50" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <div class="toggle-container">
+                                        <label class="form-label" style="margin: 0;">Adjust Take Profit</label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="trailingStopAdjustTP" checked>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monitoring Settings - Half Width -->
+                <div class="currentConfig-section">
+                    <h2 class="section-title">📊 Monitoring & Logging</h2>
+                    
+                    <div class="form-group">
+                        <div class="toggle-container">
+                            <label class="form-label" style="margin: 0;">Track Metrics</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="trackMetrics">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Metrics Interval</label>
+                            <select id="metricsInterval" class="form-control">
+                                <option value="60000">1 minute</option>
+                                <option value="300000">5 minutes</option>
+                                <option value="600000">10 minutes</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Log Level</label>
+                            <select id="logLevel" class="form-control">
+                                <option value="ERROR">Error</option>
+                                <option value="WARN">Warning</option>
+                                <option value="INFO">Info</option>
+                                <option value="DEBUG">Debug</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Drawdown Alert ($)</label>
+                        <input type="number" id="alertOnDrawdown" class="form-control" min="100" max="5000" step="100">
+                    </div>
+
+                    <div class="form-group">
+                        <div class="toggle-container">
+                            <label class="form-label" style="margin: 0;">Log Trades</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="logTrades">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="btn-group">
+                <button type="submit" class="btn btn-success">Save Configuration</button>
+                <button type="button" class="btn btn-secondary" onclick="loadConfig()">Reset</button>
+                <button type="button" class="btn btn-primary" onclick="exportConfig()">Export YAML</button>
+                <button type="button" class="btn btn-warning" onclick="loadYamlData()">Load from YAML</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Get bot ID from URL or default
+        const urlParams = new URLSearchParams(window.location.search);
+        const botId = urlParams.get('bot') || 'BOT_1';
+        let currentConfig = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('[DOM READY] Starting initialization...');
+            document.getElementById('currentConfigTitle').textContent = `${botId} Configuration`;
+            
+            // Load instruments and accounts first, then config to ensure dropdowns are populated
+            console.log('[DOM READY] Loading instruments...');
+            await loadInstruments();
+            console.log('[DOM READY] Instruments loaded');
+            
+            console.log('[DOM READY] Loading accounts...');
+            await loadAccounts();
+            console.log('[DOM READY] Accounts loaded');
+            
+            // Check server status
+            checkServerStatus();
+            setInterval(checkServerStatus, 30000); // Check every 30 seconds
+            
+            // Now load config after instruments are loaded
+            console.log('[DOM READY] Loading config from YAML...');
+            await loadConfig();
+            console.log('[DOM READY] Config loading complete');
+        });
+
+        // Check server status
+        async function checkServerStatus() {
+            const statusDot = document.querySelector('.status-dot');
+            const statusText = document.querySelector('.status-text');
+            
+            try {
+                const response = await fetch('/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDot.classList.remove('error');
+                    statusDot.classList.add('connected');
+                    statusText.textContent = 'Server Online';
+                } else {
+                    throw new Error('Server not responding');
+                }
+            } catch (error) {
+                statusDot.classList.remove('connected');
+                statusDot.classList.add('error');
+                statusText.textContent = 'Server Offline';
+            }
+        }
+
+        // Load available instruments from aggregator
+        async function loadInstruments() {
+            try {
+                console.log('[INSTRUMENTS] Fetching from /api/instruments...');
+                const response = await fetch('/api/instruments');
+                console.log('[INSTRUMENTS] Response status:', response.status);
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('[INSTRUMENTS] Response not OK:', text);
+                    throw new Error(`Failed to load instruments: ${response.status}`);
+                }
+                
+                const instruments = await response.json();
+                console.log('[INSTRUMENTS] Received instruments:', instruments);
+                
+                const select = document.getElementById('instrument');
+                
+                // Clear existing options
+                select.innerHTML = '';
+                
+                // Add default option
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select an instrument';
+                select.appendChild(defaultOption);
+                
+                // Add instruments from aggregator
+                if (Array.isArray(instruments) && instruments.length > 0) {
+                    instruments.forEach(instrument => {
+                        const option = document.createElement('option');
+                        // Handle different instrument object formats
+                        if (typeof instrument === 'string') {
+                            option.value = instrument;
+                            option.textContent = instrument;
+                        } else {
+                            // Try different property names
+                            const symbol = instrument.symbol || instrument.Symbol || instrument.contractSymbol || instrument;
+                            const name = instrument.name || instrument.Name || instrument.displayName || symbol;
+                            option.value = symbol;
+                            option.textContent = name === symbol ? symbol : `${name} (${symbol})`;
+                        }
+                        select.appendChild(option);
+                    });
+                    console.log(`[INSTRUMENTS] Loaded ${instruments.length} instruments`);
+                } else {
+                    console.warn('[INSTRUMENTS] No instruments received or invalid format');
+                    throw new Error('No instruments available');
+                }
+            } catch (error) {
+                console.error('[INSTRUMENTS] Failed to load instruments:', error);
+                // Fallback to basic micro futures if aggregator not available
+                const select = document.getElementById('instrument');
+                select.innerHTML = `
+                    <option value="">Select an instrument</option>
+                    <option value="F.US.MGC">MGC - Micro Gold</option>
+                    <option value="CON.F.US.MES.U25">MES - Micro E-mini S&P 500</option>
+                    <option value="CON.F.US.MNQ.U25">MNQ - Micro E-mini Nasdaq</option>
+                    <option value="CON.F.US.MYM.U25">MYM - Micro E-mini Dow</option>
+                    <option value="CON.F.US.M2K.U25">M2K - Micro E-mini Russell</option>
+                `;
+            }
+        }
+
+        // Load available accounts from Connection Manager
+        async function loadAccounts() {
+            try {
+                console.log('[ACCOUNTS] Fetching from /api/accounts...');
+                const response = await fetch('/api/accounts');
+                console.log('[ACCOUNTS] Response status:', response.status);
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('[ACCOUNTS] Response not OK:', text);
+                    throw new Error(`Failed to load accounts: ${response.status}`);
+                }
+                
+                const accounts = await response.json();
+                console.log('[ACCOUNTS] Received accounts:', accounts);
+                
+                const select = document.getElementById('accountId');
+                
+                // Clear existing options
+                select.innerHTML = '';
+                
+                // Add default option
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select an account';
+                select.appendChild(defaultOption);
+                
+                // Add accounts
+                if (Array.isArray(accounts) && accounts.length > 0) {
+                    accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        if (typeof account === 'string') {
+                            option.value = account;
+                            option.textContent = account;
+                        } else {
+                            // Handle object format
+                            const id = account.id || account.accountId || account.account;
+                            const name = account.name || account.displayName || id;
+                            option.value = id;
+                            option.textContent = name === id ? id : `${name} (${id})`;
+                        }
+                        select.appendChild(option);
+                    });
+                    console.log(`[ACCOUNTS] Loaded ${accounts.length} accounts`);
+                } else {
+                    console.warn('[ACCOUNTS] No accounts received or invalid format');
+                    throw new Error('No accounts available');
+                }
+            } catch (error) {
+                console.error('[ACCOUNTS] Failed to load accounts:', error);
+                // Fallback to empty if Connection Manager not available
+                const select = document.getElementById('accountId');
+                select.innerHTML = `
+                    <option value="">No accounts available</option>
+                `;
+            }
+        }
+
+        // Load currentConfiguration
+        async function loadConfig() {
+            console.log('[CONFIG LOAD] Starting to load currentConfiguration...');
+            try {
+                const response = await fetch('/api/config');
+                console.log('[CONFIG LOAD] API response status:', response.status);
+                if (!response.ok) {
+                    // If config endpoint doesn't exist, use default config
+                    console.warn('Config API not available, using defaults');
+                    currentConfig = getDefaultConfig();
+                    populateForm(currentConfig);
+                    showMessage('Using default currentConfiguration', 'info');
+                    return;
+                }
+                
+                currentConfig = await response.json();
+                console.log('[CONFIG LOAD] Loaded currentConfig:', currentConfig);
+                console.log('[CONFIG LOAD] Strategy type:', currentConfig.strategy?.type);
+                console.log('[CONFIG LOAD] Strategy params:', currentConfig.strategy?.parameters);
+                console.log('[CONFIG LOAD] EMA Fast value:', currentConfig.strategy?.parameters?.emaFast);
+                console.log('[CONFIG LOAD] EMA Slow value:', currentConfig.strategy?.parameters?.emaSlow);
+                
+                // Important: Update strategy params FIRST to create the dynamic form fields
+                // Then populate the form with values
+                populateForm(currentConfig);
+                showMessage('Configuration loaded from YAML file', 'success');
+            } catch (error) {
+                // If fetch fails completely, use default currentConfig
+                console.error('[CONFIG LOAD] Error loading currentConfig:', error);
+                console.error('[CONFIG LOAD] Error details:', error.message, error.stack);
+                currentConfig = getDefaultConfig();
+                populateForm(currentConfig);
+                showMessage(`Failed to load config: ${error.message}. Using defaults`, 'warning');
+            }
+        }
+        
+        // Get default currentConfiguration
+        function getDefaultConfig() {
+            return {
+                botId: botId,
+                port: 3004,
+                description: 'Test bot',
+                instrument: 'CON.F.US.MES.U25',
+                strategy: {
+                    type: 'EMA_RETRACE',
+                    parameters: {
+                        fastEMA: 9,
+                        slowEMA: 21,
+                        mode: 'STANDARD',
+                        maxBarsSinceEMA: 15,
+                        postWinCandleTimeout: 3,
+                        postLossCandleTimeout: 10,
+                        stopLossBuffer: 2,
+                        riskRewardRatio: 3,
+                        trailingStopEnabled: false
+                    }
+                },
+                risk: {
+                    dollarRiskPerTrade: 200,
+                    maxConsecutiveLosses: 3
+                },
+                exits: {
+                    moveToBreakeven: true,
+                    breakevenTrigger: 1.5,
+                    partialExits: [],
+                    trailingStop: {
+                        enabled: false,
+                        trigger: 1.0,
+                        distance: 10,
+                        adjustTP: true
+                    }
+                },
+                tradingHours: {
+                    enabled: true,
+                    sessions: [{
+                        name: 'Regular',
+                        start: '09:30',
+                        end: '16:00',
+                        timezone: 'America/New_York',
+                        days: [1, 2, 3, 4, 5]
+                    }]
+                },
+                execution: {
+                    orderType: 'MARKET',
+                    slippage: {
+                        maxTicks: 2
+                    },
+                    retryFailedOrders: true,
+                    maxRetries: 3
+                },
+                monitoring: {
+                    trackMetrics: true,
+                    metricsInterval: 300000,
+                    alertOnDrawdown: 500,
+                    logTrades: true,
+                    logLevel: 'INFO'
+                }
+            };
+        }
+
+        // Populate form with config data
+        function populateForm(config) {
+            console.log('[POPULATE FORM] Starting with config:', config);
+            console.log('[POPULATE FORM] Config instrument:', config.instrument);
+            console.log('[POPULATE FORM] Config strategy type:', config.strategy?.type);
+            console.log('[POPULATE FORM] Config strategy parameters:', config.strategy?.parameters);
+            
+            // Basic Settings
+            document.getElementById('botId').value = config.botId || botId;
+            document.getElementById('port').value = config.port || 3004;
+            document.getElementById('description').value = config.description || '';
+            
+            // Wait a bit for instruments to be populated before setting value
+            setTimeout(() => {
+                const instrumentSelect = document.getElementById('instrument');
+                console.log('[POPULATE FORM] Setting instrument to:', config.instrument);
+                console.log('[POPULATE FORM] Available options:', Array.from(instrumentSelect.options).map(o => o.value));
+                instrumentSelect.value = config.instrument || 'F.US.MGC';
+                
+                // Also set account after accounts are loaded
+                const accountSelect = document.getElementById('accountId');
+                console.log('[POPULATE FORM] Setting account to:', config.accountId);
+                console.log('[POPULATE FORM] Available accounts:', Array.from(accountSelect.options).map(o => o.value));
+                accountSelect.value = config.accountId || '';
+            }, 100);
+
+            // Strategy
+            const strategyType = config.strategy?.type || 'EMA_RETRACE';
+            console.log('[POPULATE FORM] Setting strategy type to:', strategyType);
+            document.getElementById('strategyType').value = strategyType;
+            
+            // IMPORTANT: Set global currentConfig BEFORE updating strategy params
+            currentConfig = config;
+            
+            // Update strategy params creates the dynamic fields
+            updateStrategyParams(config);
+            
+            // Populate strategy parameters after they've been created
+            // Increased timeout to ensure DOM elements are created
+            console.log('[POPULATE FORM] Scheduling populateStrategyParameters...');
+            setTimeout(() => {
+                console.log('[POPULATE FORM] Now calling populateStrategyParameters');
+                console.log('[POPULATE FORM] Checking if emaFast element exists:', !!document.getElementById('emaFast'));
+                console.log('[POPULATE FORM] Checking if emaUpdateMode element exists:', !!document.getElementById('emaUpdateMode'));
+                populateStrategyParameters(config);
+            }, 2000);  // 2 second delay for better reliability
+            
+            // Risk Management
+            const dollarRiskField = document.getElementById('dollarRiskPerTrade');
+            if (dollarRiskField) dollarRiskField.value = config.risk?.dollarRiskPerTrade || 200;
+            
+            const maxLossesField = document.getElementById('maxConsecutiveLosses');
+            if (maxLossesField) maxLossesField.value = config.risk?.maxConsecutiveLosses || 3;
+            const moveToBreakevenField = document.getElementById('moveToBreakeven');
+            if (moveToBreakevenField) moveToBreakevenField.checked = config.exits?.moveToBreakeven === true;
+            
+            const breakevenTriggerField = document.getElementById('breakevenTrigger');
+            if (breakevenTriggerField) breakevenTriggerField.value = config.exits?.breakevenTrigger || 1.5;
+            
+            // Partial Exits
+            const partialExits = config.exits?.partialExits || [];
+            const hasPartialExits = partialExits.length > 0;
+            const partialExitsEnabledField = document.getElementById('partialExitsEnabled');
+            if (partialExitsEnabledField) {
+                partialExitsEnabledField.checked = hasPartialExits;
+                togglePartialExits();
+            }
+            
+            const partialExit1PctField = document.getElementById('partialExit1Pct');
+            const partialExit1TargetField = document.getElementById('partialExit1Target');
+            if (partialExit1PctField && partialExit1TargetField) {
+                if (partialExits.length >= 1) {
+                    partialExit1PctField.value = partialExits[0].percentage || 50;
+                    partialExit1TargetField.value = partialExits[0].target || 1.5;
+                } else {
+                    partialExit1PctField.value = 50;
+                    partialExit1TargetField.value = 1.5;
+                }
+            }
+            
+            const partialExit2PctField = document.getElementById('partialExit2Pct');
+            const partialExit2TargetField = document.getElementById('partialExit2Target');
+            if (partialExit2PctField && partialExit2TargetField) {
+                if (partialExits.length >= 2) {
+                    partialExit2PctField.value = partialExits[1].percentage || 50;
+                    partialExit2TargetField.value = partialExits[1].target || 2;
+                } else {
+                    partialExit2PctField.value = 50;
+                    partialExit2TargetField.value = 2;
+                }
+            }
+            
+            // Trailing Stop
+            const trailingStop = config.exits?.trailingStop;
+            const trailingStopEnabledField = document.getElementById('trailingStopEnabled');
+            if (trailingStopEnabledField) {
+                trailingStopEnabledField.checked = trailingStop?.enabled === true;
+                toggleTrailingStop();
+            }
+            
+            const trailingStopTriggerField = document.getElementById('trailingStopTrigger');
+            if (trailingStopTriggerField) trailingStopTriggerField.value = trailingStop?.trigger || 1.0;
+            
+            const trailingStopDistanceField = document.getElementById('trailingStopDistance');
+            if (trailingStopDistanceField) trailingStopDistanceField.value = trailingStop?.distance || 10;
+            
+            const trailingStopAdjustTPField = document.getElementById('trailingStopAdjustTP');
+            if (trailingStopAdjustTPField) trailingStopAdjustTPField.checked = trailingStop?.adjustTP === true;
+
+            // Trading Hours
+            const tradingHoursEnabledField = document.getElementById('tradingHoursEnabled');
+            if (tradingHoursEnabledField) tradingHoursEnabledField.checked = config.tradingHours?.enabled === true;
+            
+            const startTimeField = document.getElementById('startTime');
+            if (startTimeField) startTimeField.value = config.tradingHours?.sessions?.[0]?.start || '09:30';
+            
+            const endTimeField = document.getElementById('endTime');
+            if (endTimeField) endTimeField.value = config.tradingHours?.sessions?.[0]?.end || '16:00';
+            
+            // Execution Settings
+            const orderTypeField = document.getElementById('orderType');
+            if (orderTypeField) orderTypeField.value = 'MARKET'; // Always market orders
+            
+            const maxSlippageField = document.getElementById('maxSlippage');
+            if (maxSlippageField) maxSlippageField.value = config.execution?.slippage?.maxTicks || 2;
+            // Removed orderTimeout and useMarketOnTimeout - not needed for market orders
+            const retryFailedOrdersField = document.getElementById('retryFailedOrders');
+            if (retryFailedOrdersField) retryFailedOrdersField.checked = config.execution?.retryFailedOrders === true;
+            
+            const maxRetriesField = document.getElementById('maxRetries');
+            if (maxRetriesField) maxRetriesField.value = config.execution?.maxRetries || 3;
+            
+            // Monitoring Settings
+            const trackMetricsField = document.getElementById('trackMetrics');
+            if (trackMetricsField) trackMetricsField.checked = config.monitoring?.trackMetrics === true;
+            
+            const metricsIntervalField = document.getElementById('metricsInterval');
+            if (metricsIntervalField) metricsIntervalField.value = config.monitoring?.metricsInterval || 300000;
+            
+            const alertOnDrawdownField = document.getElementById('alertOnDrawdown');
+            if (alertOnDrawdownField) alertOnDrawdownField.value = config.monitoring?.alertOnDrawdown || 500;
+            
+            const logTradesField = document.getElementById('logTrades');
+            if (logTradesField) logTradesField.checked = config.monitoring?.logTrades === true;
+            
+            const logLevelField = document.getElementById('logLevel');
+            if (logLevelField) logLevelField.value = config.monitoring?.logLevel || 'INFO';
+        }
+        
+        // Populate strategy parameters after they've been created
+        function populateStrategyParameters(currentConfig) {
+            console.log('[POPULATE STRATEGY] Called with currentConfig:', currentConfig);
+            console.log('[POPULATE STRATEGY] Strategy:', currentConfig.strategy);
+            console.log('[POPULATE STRATEGY] Parameters:', currentConfig.strategy?.parameters);
+            
+            if (!currentConfig.strategy?.parameters) {
+                console.log('[POPULATE STRATEGY] No parameters found, returning');
+                return;
+            }
+            
+            const strategyType = currentConfig.strategy.type;
+            const params = currentConfig.strategy.parameters;
+            console.log('[POPULATE STRATEGY] Strategy type:', strategyType);
+            console.log('[POPULATE STRATEGY] Params:', params);
+            
+            if (strategyType === 'EMA_RETRACE') {
+                console.log('[POPULATE STRATEGY] Processing EMA_RETRACE parameters');
+                
+                if (document.getElementById('emaFast')) {
+                    const emaFastValue = params.fastEMA || params.emaFast || 9;
+                    console.log('[POPULATE STRATEGY] Setting emaFast to:', emaFastValue);
+                    document.getElementById('emaFast').value = emaFastValue;
+                } else {
+                    console.log('[POPULATE STRATEGY] ERROR: emaFast element not found!');
+                }
+                
+                if (document.getElementById('emaSlow')) {
+                    const emaSlowValue = params.slowEMA || params.emaSlow || 21;
+                    console.log('[POPULATE STRATEGY] Setting emaSlow to:', emaSlowValue);
+                    document.getElementById('emaSlow').value = emaSlowValue;
+                } else {
+                    console.log('[POPULATE STRATEGY] ERROR: emaSlow element not found!');
+                }
+                if (document.getElementById('retracementMode')) {
+                    document.getElementById('retracementMode').value = params.mode || 'STANDARD';
+                }
+                if (document.getElementById('maxBarsSinceEMA')) {
+                    document.getElementById('maxBarsSinceEMA').value = params.maxBarsSinceEMA || 15;
+                }
+                if (document.getElementById('postWinCandleTimeout')) {
+                    document.getElementById('postWinCandleTimeout').value = params.postWinCandleTimeout || 180;
+                }
+                if (document.getElementById('postLossCandleTimeout')) {
+                    document.getElementById('postLossCandleTimeout').value = params.postLossCandleTimeout || 600;
+                }
+                if (document.getElementById('stopLossBuffer')) {
+                    document.getElementById('stopLossBuffer').value = params.stopLossBuffer || 2;
+                }
+                if (document.getElementById('riskRewardRatio')) {
+                    document.getElementById('riskRewardRatio').value = params.riskRewardRatio || 3;
+                }
+                if (document.getElementById('minEMASpread')) {
+                    document.getElementById('minEMASpread').value = params.minEMASpread || 0.5;
+                }
+                if (document.getElementById('maxRiskPoints')) {
+                    document.getElementById('maxRiskPoints').value = params.maxRiskPoints || 3.0;
+                }
+                if (document.getElementById('emaUpdateMode')) {
+                    document.getElementById('emaUpdateMode').value = params.emaUpdateMode || 'CANDLE_BASED';
+                }
+                if (document.getElementById('trailingStopEnabled')) {
+                    document.getElementById('trailingStopEnabled').checked = params.trailingStopEnabled || false;
+                    // Ensure main trailing stop is also enabled if strategy has it enabled
+                    if (params.trailingStopEnabled) {
+                        document.getElementById('trailingStopEnabled').checked = true;
+                        toggleTrailingStop();
+                    }
+                }
+            } else if (strategyType === 'ORB_RUBBER_BAND') {
+                if (document.getElementById('openingRangeDuration')) {
+                    document.getElementById('openingRangeDuration').value = params.openingRangeDuration || 30;
+                }
+                if (document.getElementById('orbBreakoutPercent')) {
+                    document.getElementById('orbBreakoutPercent').value = params.orbBreakoutPercent || 10;
+                }
+                if (document.getElementById('orbMaxBreakoutPercent')) {
+                    document.getElementById('orbMaxBreakoutPercent').value = params.orbMaxBreakoutPercent || 30;
+                }
+                if (document.getElementById('orbVolumeThreshold')) {
+                    document.getElementById('orbVolumeThreshold').value = params.orbVolumeThreshold || 120;
+                }
+                if (document.getElementById('rubberBandReversalPercent')) {
+                    document.getElementById('rubberBandReversalPercent').value = params.rubberBandReversalPercent || 50;
+                }
+                if (document.getElementById('rubberBandCandleWindow')) {
+                    document.getElementById('rubberBandCandleWindow').value = params.rubberBandCandleWindow || 3;
+                }
+                if (document.getElementById('rubberBandVolumeThreshold')) {
+                    document.getElementById('rubberBandVolumeThreshold').value = params.rubberBandVolumeThreshold || 150;
+                }
+                if (document.getElementById('reverseOnORReEntry')) {
+                    document.getElementById('reverseOnORReEntry').checked = params.reverseOnORReEntry === true;
+                }
+                if (document.getElementById('volumePeriod')) {
+                    document.getElementById('volumePeriod').value = params.volumePeriod || 20;
+                }
+                if (document.getElementById('candleIntervalMinutes')) {
+                    document.getElementById('candleIntervalMinutes').value = params.candleIntervalMinutes || 5;
+                }
+                if (document.getElementById('orbSignalCooldownMs')) {
+                    document.getElementById('orbSignalCooldownMs').value = (params.signalCooldownMs || 300000) / 1000; // Convert to seconds
+                }
+                if (document.getElementById('stopLossORPercent')) {
+                    document.getElementById('stopLossORPercent').value = params.stopLossORPercent || 100;
+                }
+                if (document.getElementById('stopLossBufferTicks')) {
+                    document.getElementById('stopLossBufferTicks').value = params.stopLossBufferTicks || 2;
+                }
+                if (document.getElementById('oneTradeAtTime')) {
+                    document.getElementById('oneTradeAtTime').checked = params.oneTradeAtTime === true;
+                }
+                if (document.getElementById('maxTradeDurationMinutes')) {
+                    document.getElementById('maxTradeDurationMinutes').value = params.maxTradeDurationMinutes || 480;
+                }
+                if (document.getElementById('londonOpenTime')) {
+                    document.getElementById('londonOpenTime').value = params.londonOpenTime || '02:00';
+                }
+                if (document.getElementById('nyOpenTime')) {
+                    document.getElementById('nyOpenTime').value = params.nyOpenTime || '09:30';
+                }
+                if (document.getElementById('activeSession')) {
+                    document.getElementById('activeSession').value = params.activeSession || 'BOTH';
+                }
+                if (document.getElementById('trailingStopEnabledORB')) {
+                    document.getElementById('trailingStopEnabledORB').checked = params.trailingStopEnabled || false;
+                }
+                // For ORB strategy, ensure proper ID is used
+                if (document.getElementById('strategyTrailingStopEnabled')) {
+                    document.getElementById('strategyTrailingStopEnabled').checked = params.trailingStopEnabled || false;
+                    // Ensure main trailing stop is also enabled if strategy has it enabled
+                    if (params.trailingStopEnabled) {
+                        document.getElementById('trailingStopEnabled').checked = true;
+                        toggleTrailingStop();
+                    }
+                }
+            }
+        }
+
+        // Update strategy parameters based on type
+        function updateStrategyParams(configToUse = null) {
+            const config = configToUse || currentConfig;
+            const strategyType = document.getElementById('strategyType').value;
+            const paramsDiv = document.getElementById('strategyParams');
+            
+            let html = '';
+            
+            switch (strategyType) {
+                case 'EMA_RETRACE':
+                    html = `
+                        <div class="form-group">
+                            <label class="form-label">Fast EMA Period (for trend detection)</label>
+                            <input type="number" id="emaFast" class="form-control" value="${config?.strategy?.parameters?.fastEMA || config?.strategy?.parameters?.emaFast || 9}" min="1" max="200">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Slow EMA Period (for stop loss placement)</label>
+                            <input type="number" id="emaSlow" class="form-control" value="${config?.strategy?.parameters?.slowEMA || config?.strategy?.parameters?.emaSlow || 21}" min="1" max="200">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Retracement Mode</label>
+                            <select id="retracementMode" class="form-control">
+                                <option value="STANDARD" ${config?.strategy?.parameters?.mode === 'STANDARD' || !config?.strategy?.parameters?.mode ? 'selected' : ''}>Standard - More trades, real-time entries</option>
+                                <option value="CONSERVATIVE" ${config?.strategy?.parameters?.mode === 'CONSERVATIVE' ? 'selected' : ''}>Conservative - EMA invalidation filter</option>
+                            </select>
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Conservative mode invalidates setups when a candle crosses both EMAs
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Bars Between EMAs</label>
+                            <input type="number" id="maxBarsSinceEMA" class="form-control" value="${currentConfig?.strategy?.parameters?.maxBarsSinceEMA || 15}" min="5" max="50">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Maximum bars price can consolidate between EMAs before invalidating setup (avoids chop)
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Post-Win Timeout (seconds)</label>
+                            <input type="number" id="postWinCandleTimeout" class="form-control" value="${currentConfig?.strategy?.parameters?.postWinCandleTimeout || 180}" min="0" max="1200">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Seconds to wait after hitting take profit before next signal
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Post-Loss Timeout (seconds)</label>
+                            <input type="number" id="postLossCandleTimeout" class="form-control" value="${currentConfig?.strategy?.parameters?.postLossCandleTimeout || 600}" min="0" max="3000">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Seconds to wait after hitting stop loss before next signal (avoid revenge trading)
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Minimum EMA Spread (points)</label>
+                            <input type="number" id="minEMASpread" class="form-control" value="${currentConfig?.strategy?.parameters?.minEMASpread || 0.5}" min="0.1" max="5" step="0.1">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Minimum distance between EMAs to consider a valid setup
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Risk Points</label>
+                            <input type="number" id="maxRiskPoints" class="form-control" value="${currentConfig?.strategy?.parameters?.maxRiskPoints || 3.0}" min="1" max="10" step="0.5">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Maximum stop loss distance in points (filters wide stops)
+                            </div>
+                        </div>
+                        <h4 style="font-size: 0.9rem; margin-top: var(--spacing-md);">Exit Management</h4>
+                        <div class="form-group">
+                            <label class="form-label">Stop Loss Buffer (ticks)</label>
+                            <input type="number" id="stopLossBuffer" class="form-control" value="${currentConfig?.strategy?.parameters?.stopLossBuffer || 2}" min="0" max="10">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Additional ticks beyond slow EMA for stop loss placement
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Risk/Reward Ratio</label>
+                            <input type="number" id="riskRewardRatio" class="form-control" value="${currentConfig?.strategy?.parameters?.riskRewardRatio || 3}" min="1" max="10" step="0.5">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Take profit = Entry + (Stop Distance × R:R)
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">EMA Update Mode</label>
+                            <select id="emaUpdateMode" class="form-control">
+                                <option value="CANDLE_BASED" ${currentConfig?.strategy?.parameters?.emaUpdateMode === 'CANDLE_BASED' || !currentConfig?.strategy?.parameters?.emaUpdateMode ? 'selected' : ''}>Candle Based - Update EMAs on candle close</option>
+                                <option value="TICK_BASED" ${currentConfig?.strategy?.parameters?.emaUpdateMode === 'TICK_BASED' ? 'selected' : ''}>Tick Based - Update EMAs on every price tick</option>
+                            </select>
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Candle based is more stable, tick based is more responsive
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="toggle-container">
+                                <label class="form-label" style="margin: 0;">Enable Trailing Stop for this Strategy</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="strategyTrailingStopEnabled" ${currentConfig?.strategy?.parameters?.trailingStopEnabled ? 'checked' : ''} onchange="syncTrailingStopSwitches()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Use the trailing stop feature from Risk Management when this strategy is active
+                            </div>
+                        </div>
+                        <div class="info-box">
+                            <strong>Strategy Description:</strong><br>
+                            This strategy enters when price retraces back through the fast EMA after moving beyond it.<br>
+                            - <strong>Long Entry:</strong> Price goes below EMA 9, then comes back above it<br>
+                            - <strong>Short Entry:</strong> Price goes above EMA 9, then comes back below it<br>
+                            - <strong>Stop Loss:</strong> Dynamically placed at the slow EMA (default EMA 19)<br>
+                            - <strong>Not a crossover strategy</strong> - trades retracements through a single EMA
+                        </div>
+                    `;
+                    break;
+                    
+                case 'ORB_RUBBER_BAND':
+                    html = `
+                        <div class="form-group">
+                            <label class="form-label">Opening Range Duration (minutes)</label>
+                            <input type="number" id="openingRangeDuration" class="form-control" value="${config?.strategy?.parameters?.openingRangeDuration || 30}">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Time period to establish the opening range high/low
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Breakout Threshold (%)</label>
+                                <input type="number" id="orbBreakoutPercent" class="form-control" value="${config?.strategy?.parameters?.orbBreakoutPercent || 10}" min="5" max="50" step="5">
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    % of OR range to trigger breakout
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Volume Threshold (%)</label>
+                                <input type="number" id="orbVolumeThreshold" class="form-control" value="${config?.strategy?.parameters?.orbVolumeThreshold || 120}" min="100" max="200" step="10">
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    % of 20-period volume average
+                                </div>
+                            </div>
+                        </div>
+                        <h4 style="font-size: 0.9rem; margin-top: 15px; margin-bottom: 10px;">Rubber Band Settings</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Reversal Threshold (%)</label>
+                                <input type="number" id="rubberBandReversalPercent" class="form-control" value="${config?.strategy?.parameters?.rubberBandReversalPercent || 50}" min="20" max="80" step="10">
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    % retracement to trigger reversal
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Candle Window</label>
+                                <input type="number" id="rubberBandCandleWindow" class="form-control" value="${config?.strategy?.parameters?.rubberBandCandleWindow || 3}" min="1" max="10" step="1">
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    # of candles to monitor for reversal
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Candle Interval (minutes)</label>
+                                <input type="number" id="candleIntervalMinutes" class="form-control" value="${config?.strategy?.parameters?.candleIntervalMinutes || 5}" min="1" max="15" step="1">
+                            </div>
+                            <div class="form-group">
+                                <div class="toggle-container" style="margin-top: 20px;">
+                                    <label class="form-label" style="margin: 0;">Reverse on OR Re-entry</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="reverseOnORReEntry" ${config?.strategy?.parameters?.reverseOnORReEntry === true ? 'checked' : ''}>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Breakout Percent (%)</label>
+                            <input type="number" id="orbMaxBreakoutPercent" class="form-control" value="${config?.strategy?.parameters?.orbMaxBreakoutPercent || 30}" min="20" max="100" step="5">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Maximum % of OR for valid breakout (filters extended moves)
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rubber Band Volume Threshold (%)</label>
+                            <input type="number" id="rubberBandVolumeThreshold" class="form-control" value="${config?.strategy?.parameters?.rubberBandVolumeThreshold || 150}" min="100" max="300" step="10">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Volume required for reversal signal
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Volume Period (bars)</label>
+                            <input type="number" id="volumePeriod" class="form-control" value="${config?.strategy?.parameters?.volumePeriod || 20}" min="10" max="50" step="5">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Periods for volume moving average
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Risk Points</label>
+                            <input type="number" id="maxRiskPointsORB" class="form-control" value="${config?.strategy?.parameters?.maxRiskPoints || 3.0}" min="1" max="10" step="0.5">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Signal Cooldown (seconds)</label>
+                            <input type="number" id="signalCooldownMsORB" class="form-control" value="${(config?.strategy?.parameters?.signalCooldownMs || 300000) / 1000}" min="0" max="600">
+                        </div>
+                        <h4 style="font-size: 0.9rem; margin-top: 15px; margin-bottom: 10px;">Session Settings</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">London Open (ET)</label>
+                                <input type="time" id="londonOpenTime" class="form-control" value="${config?.strategy?.parameters?.londonOpenTime || '02:00'}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">NY Open (ET)</label>
+                                <input type="time" id="nyOpenTime" class="form-control" value="${config?.strategy?.parameters?.nyOpenTime || '09:30'}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Active Session</label>
+                            <select id="activeSession" class="form-control">
+                                <option value="LONDON" ${config?.strategy?.parameters?.activeSession === 'LONDON' ? 'selected' : ''}>London Only</option>
+                                <option value="NY" ${config?.strategy?.parameters?.activeSession === 'NY' ? 'selected' : ''}>New York Only</option>
+                                <option value="BOTH" ${!config?.strategy?.parameters?.activeSession || config?.strategy?.parameters?.activeSession === 'BOTH' ? 'selected' : ''}>Both Sessions</option>
+                            </select>
+                        </div>
+                        <h4 style="font-size: 0.9rem; margin-top: var(--spacing-md);">Exit Management</h4>
+                        <div class="form-group">
+                            <label class="form-label">Stop Loss OR Percentage</label>
+                            <input type="number" id="stopLossORPercent" class="form-control" value="${config?.strategy?.parameters?.stopLossORPercent || 100}" min="50" max="150" step="1">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                100% = opposite side of OR, 50% = midpoint, 101% = 1% beyond OR
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stop Loss Buffer (ticks)</label>
+                            <input type="number" id="stopLossBufferTicks" class="form-control" value="${config?.strategy?.parameters?.stopLossBufferTicks || 2}" min="0" max="10">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Additional ticks beyond the calculated stop level
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="toggle-container">
+                                <label class="form-label" style="margin: 0;">Enable Trailing Stop for this Strategy</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="strategyTrailingStopEnabled" ${config?.strategy?.parameters?.trailingStopEnabled ? 'checked' : ''} onchange="syncTrailingStopSwitches()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Use the trailing stop feature from Risk Management when this strategy is active
+                            </div>
+                        </div>
+                        <div class="info-box">
+                            <strong>Exit Management:</strong><br>
+                            • <strong>ORB Trades:</strong> SL at OR boundary (configurable %), TP at 3x OR range<br>
+                            • <strong>Rubber Band:</strong> SL at reversal/breakout candle high/low (whichever is furthest)<br>
+                            • Buffer ticks added to all stop losses for safety
+                        </div>
+                    `;
+                    break;
+                    
+            }
+            
+            paramsDiv.innerHTML = html;
+        }
+
+        // Toggle partial exits visibility
+        function togglePartialExits() {
+            const enabled = document.getElementById('partialExitsEnabled').checked;
+            const section = document.getElementById('partialExitsSection');
+            section.style.display = enabled ? 'block' : 'none';
+        }
+
+        // Toggle trailing stop visibility
+        function toggleTrailingStop() {
+            const enabled = document.getElementById('trailingStopEnabled').checked;
+            const section = document.getElementById('trailingStopSection');
+            section.style.display = enabled ? 'block' : 'none';
+            
+            // Sync with strategy trailing stop checkbox
+            const strategyCheckbox = document.getElementById('strategyTrailingStopEnabled');
+            if (strategyCheckbox) {
+                strategyCheckbox.checked = enabled;
+            }
+        }
+        
+        // Sync trailing stop switches between strategy and risk settings
+        function syncTrailingStopSwitches() {
+            const strategyEnabled = document.getElementById('strategyTrailingStopEnabled')?.checked || false;
+            const mainCheckbox = document.getElementById('trailingStopEnabled');
+            
+            if (mainCheckbox) {
+                mainCheckbox.checked = strategyEnabled;
+                toggleTrailingStop();
+            }
+        }
+
+        // Save currentConfiguration
+        document.getElementById('currentConfigForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            
+            // Build partial exits array
+            let partialExits = [];
+            const partialExitsEnabled = document.getElementById('partialExitsEnabled').checked;
+            
+            // Only add partial exits if the feature is enabled
+            if (partialExitsEnabled) {
+                const exit1Pct = parseInt(document.getElementById('partialExit1Pct').value);
+                const exit1Target = parseFloat(document.getElementById('partialExit1Target').value);
+                if (exit1Pct > 0) {
+                    partialExits.push({ percentage: exit1Pct, target: exit1Target });
+                }
+                
+                const exit2Pct = parseInt(document.getElementById('partialExit2Pct').value);
+                const exit2Target = parseFloat(document.getElementById('partialExit2Target').value);
+                if (exit2Pct > 0) {
+                    partialExits.push({ percentage: exit2Pct, target: exit2Target });
+                }
+            }
+            
+            // Start with the current currentConfig to preserve all existing values
+            const updatedConfig = {
+                ...currentConfig,  // Preserve all existing currentConfig values
+                // Then override with form values
+                botId: document.getElementById('botId').value,
+                port: parseInt(document.getElementById('port').value),
+                description: document.getElementById('description').value,
+                instrument: document.getElementById('instrument').value,
+                accountId: document.getElementById('accountId').value,
+                strategy: {
+                    type: document.getElementById('strategyType').value,
+                    parameters: getStrategyParameters()  // Only save form values, no spreading
+                },
+                risk: {
+                    ...currentConfig.risk,  // Preserve existing risk config
+                    dollarRiskPerTrade: parseInt(document.getElementById('dollarRiskPerTrade').value),
+                    maxConsecutiveLosses: parseInt(document.getElementById('maxConsecutiveLosses').value),
+                    positionSizing: {
+                        method: 'FIXED',
+                        fixedSize: 1
+                    }
+                },
+                exits: {
+                    ...currentConfig.exits,  // Preserve existing exits currentConfig
+                    moveToBreakeven: document.getElementById('moveToBreakeven').checked,
+                    breakevenTrigger: parseFloat(document.getElementById('breakevenTrigger').value),
+                    partialExits: partialExits,
+                    trailingStop: {
+                        ...currentConfig.exits?.trailingStop,  // Preserve existing trailing stop currentConfig
+                        enabled: document.getElementById('trailingStopEnabled').checked,
+                        trigger: parseFloat(document.getElementById('trailingStopTrigger').value) || 1.0,
+                        distance: parseInt(document.getElementById('trailingStopDistance').value) || 10,
+                        adjustTP: document.getElementById('trailingStopAdjustTP').checked
+                    }
+                },
+                tradingHours: {
+                    ...currentConfig.tradingHours,  // Preserve existing trading hours currentConfig
+                    enabled: document.getElementById('tradingHoursEnabled').checked,
+                    sessions: [{
+                        ...currentConfig.tradingHours?.sessions?.[0],  // Preserve existing session currentConfig
+                        name: 'Regular',
+                        start: document.getElementById('startTime').value,
+                        end: document.getElementById('endTime').value,
+                        timezone: 'America/New_York',
+                        days: [1, 2, 3, 4, 5]
+                    }]
+                },
+                execution: {
+                    ...currentConfig.execution,  // Preserve existing execution currentConfig
+                    orderType: 'MARKET', // Always use market orders
+                    slippage: {
+                        maxTicks: parseInt(document.getElementById('maxSlippage').value)
+                    },
+                    retryFailedOrders: document.getElementById('retryFailedOrders').checked,
+                    maxRetries: parseInt(document.getElementById('maxRetries').value)
+                },
+                monitoring: {
+                    ...currentConfig.monitoring,  // Preserve existing monitoring currentConfig
+                    trackMetrics: document.getElementById('trackMetrics').checked,
+                    metricsInterval: parseInt(document.getElementById('metricsInterval').value),
+                    alertOnDrawdown: parseInt(document.getElementById('alertOnDrawdown').value),
+                    logTrades: document.getElementById('logTrades').checked,
+                    logLevel: document.getElementById('logLevel').value
+                }
+            };
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save config');
+                }
+
+                showMessage('Configuration saved successfully!', 'success');
+                currentConfig = updatedConfig;
+                
+                // Note about when changes take effect
+                setTimeout(() => {
+                    showMessage('Note: Configuration changes will be applied the next time the bot starts.', 'info');
+                }, 1500);
+            } catch (error) {
+                showMessage(`Error saving currentConfig: ${error.message}`, 'error');
+            }
+        });
+
+        // Get strategy parameters based on type
+        function getStrategyParameters() {
+            const strategyType = document.getElementById('strategyType').value;
+            
+            switch (strategyType) {
+                case 'EMA_RETRACE':
+                    return {
+                        emaFast: parseInt(document.getElementById('emaFast').value),
+                        emaSlow: parseInt(document.getElementById('emaSlow').value),
+                        mode: document.getElementById('retracementMode').value,
+                        maxBarsSinceEMA: parseInt(document.getElementById('maxBarsSinceEMA').value),
+                        postWinCandleTimeout: parseInt(document.getElementById('postWinCandleTimeout').value),
+                        postLossCandleTimeout: parseInt(document.getElementById('postLossCandleTimeout').value),
+                        minEMASpread: parseFloat(document.getElementById('minEMASpread').value),
+                        maxRiskPoints: parseFloat(document.getElementById('maxRiskPoints').value),
+                        stopLossBuffer: parseInt(document.getElementById('stopLossBuffer').value),
+                        stopLossOffset: 0,  // Default value - can be made currentConfigurable if needed
+                        riskRewardRatio: parseFloat(document.getElementById('riskRewardRatio').value),
+                        trailingStopEnabled: document.getElementById('strategyTrailingStopEnabled').checked,
+                        candleIntervalSeconds: 60,  // Fixed at 60 seconds per candle
+                        emaUpdateMode: document.getElementById('emaUpdateMode').value
+                    };
+                    
+                case 'ORB_RUBBER_BAND':
+                    return {
+                        openingRangeDuration: parseInt(document.getElementById('openingRangeDuration').value),
+                        orbBreakoutPercent: parseInt(document.getElementById('orbBreakoutPercent').value),
+                        orbMaxBreakoutPercent: parseInt(document.getElementById('orbMaxBreakoutPercent').value),
+                        orbVolumeThreshold: parseInt(document.getElementById('orbVolumeThreshold').value),
+                        rubberBandReversalPercent: parseInt(document.getElementById('rubberBandReversalPercent').value),
+                        rubberBandCandleWindow: parseInt(document.getElementById('rubberBandCandleWindow').value),
+                        rubberBandVolumeThreshold: parseInt(document.getElementById('rubberBandVolumeThreshold').value),
+                        candleIntervalMinutes: parseInt(document.getElementById('candleIntervalMinutes').value),
+                        reverseOnORReEntry: document.getElementById('reverseOnORReEntry').checked,
+                        volumePeriod: parseInt(document.getElementById('volumePeriod').value),
+                        maxRiskPoints: parseFloat(document.getElementById('maxRiskPointsORB').value),
+                        signalCooldownMs: parseInt(document.getElementById('orbSignalCooldownMs').value) * 1000, // Convert to ms
+                        stopLossORPercent: parseInt(document.getElementById('stopLossORPercent').value),
+                        stopLossBufferTicks: parseInt(document.getElementById('stopLossBufferTicks').value),
+                        trailingStopEnabled: document.getElementById('strategyTrailingStopEnabled').checked,
+                        // Session settings
+                        londonOpenTime: document.getElementById('londonOpenTime').value,
+                        nyOpenTime: document.getElementById('nyOpenTime').value,
+                        activeSession: document.getElementById('activeSession').value,
+                        // Position management
+                        oneTradeAtTime: document.getElementById('oneTradeAtTime').checked,
+                        maxTradeDurationMinutes: parseInt(document.getElementById('maxTradeDurationMinutes').value)
+                    };
+                    
+                    
+                default:
+                    return {};
+            }
+        }
+
+        // Export currentConfiguration as YAML
+        function exportConfig() {
+            const yaml = generateYAML(currentConfig);
+            const blob = new Blob([yaml], { type: 'text/yaml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentConfig.botId}.yaml`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showMessage('Configuration exported', 'success');
+        }
+
+        // Manually load data from YAML file
+        async function loadYamlData() {
+            console.log('[LOAD YAML MANUAL] Starting manual YAML load...');
+            console.log('[LOAD YAML MANUAL] Current config before manual load:', currentConfig);
+            showMessage('Loading configuration from YAML file...', 'info');
+            
+            try {
+                // Fetch the YAML configuration from the server
+                const response = await fetch('/api/config');
+                console.log('[LOAD YAML MANUAL] Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load YAML: ${response.statusText}`);
+                }
+                
+                const yamlConfig = await response.json();
+                console.log('[LOAD YAML MANUAL] Loaded YAML config:', yamlConfig);
+                
+                // Update the current config
+                currentConfig = yamlConfig;
+                
+                // Populate the form with the loaded data
+                populateForm(yamlConfig);
+                
+                showMessage('YAML configuration loaded successfully!', 'success');
+                
+                // Log what was loaded
+                console.log('[LOAD YAML MANUAL] Strategy type:', yamlConfig.strategy?.type);
+                console.log('[LOAD YAML MANUAL] Strategy parameters:', yamlConfig.strategy?.parameters);
+                console.log('[LOAD YAML MANUAL] Risk config:', yamlConfig.risk);
+                
+            } catch (error) {
+                console.error('[LOAD YAML MANUAL] Error:', error);
+                showMessage(`Error loading YAML: ${error.message}`, 'error');
+            }
+        }
+
+        // Simple YAML generation
+        function generateYAML(obj, indent = '') {
+            let yaml = '';
+            for (const [key, value] of Object.entries(obj)) {
+                if (value === null || value === undefined) continue;
+                
+                if (typeof value === 'object' && !Array.isArray(value)) {
+                    yaml += `${indent}${key}:\n`;
+                    yaml += generateYAML(value, indent + '  ');
+                } else if (Array.isArray(value)) {
+                    yaml += `${indent}${key}:\n`;
+                    value.forEach(item => {
+                        if (typeof item === 'object') {
+                            yaml += `${indent}  - ${item.name || ''}\n`;
+                            const itemYaml = generateYAML(item, indent + '    ');
+                            yaml += itemYaml.split('\n').filter(line => !line.includes('name:')).join('\n');
+                        } else {
+                            yaml += `${indent}  - ${item}\n`;
+                        }
+                    });
+                } else {
+                    yaml += `${indent}${key}: ${value}\n`;
+                }
+            }
+            return yaml;
+        }
+
+        // Show status message
+        function showMessage(message, type) {
+            const msgDiv = document.getElementById('statusMessage');
+            msgDiv.textContent = message;
+            msgDiv.className = `status-message ${type}`;
+            msgDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                msgDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Go back to dashboard
+        function goBack() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

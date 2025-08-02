@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot Configuration</title>
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+    <link rel="stylesheet" href="/src/ui/shared/premium-dark-theme.css">
+    <link rel="stylesheet" href="/src/ui/shared/components.css">
+    <style>
+        /* Bot Configuration Specific Styles */
+        .config-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-xl);
+        }
+
+        .config-header {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            text-align: center;
+        }
+
+        .config-sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-xl);
+        }
+
+        @media (max-width: 900px) {
+            .config-sections {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .config-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: var(--spacing-lg);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .form-label {
+            display: block;
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: var(--spacing-sm);
+            font-size: 0.875rem;
+        }
+
+        .form-help {
+            color: var(--text-tertiary);
+            font-size: 0.75rem;
+            margin-top: var(--spacing-xs);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            transition: all var(--transition-fast);
+        }
+
+        .form-control:hover {
+            border-color: var(--border-hover);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        select.form-control {
+            cursor: pointer;
+        }
+
+        /* Account Selection */
+        .account-selector {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .account-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: var(--spacing-sm);
+        }
+
+        .account-balance {
+            color: var(--accent-success);
+            font-weight: 600;
+        }
+
+        /* Strategy Parameters */
+        .strategy-params {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-top: var(--spacing-md);
+        }
+
+        .param-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        /* Risk Settings */
+        .risk-warning {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+            color: var(--accent-danger);
+            font-size: 0.875rem;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-xl);
+        }
+
+        .btn-large {
+            padding: var(--spacing-md) var(--spacing-xl);
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .btn-save {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-save:hover {
+            background: var(--accent-primary-hover);
+        }
+
+        .btn-launch {
+            background: var(--accent-success);
+            color: white;
+        }
+
+        .btn-launch:hover {
+            background: #059669;
+        }
+
+        /* Status Messages */
+        .status-message {
+            position: fixed;
+            top: var(--spacing-xl);
+            right: var(--spacing-xl);
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-3);
+            transform: translateX(400px);
+            transition: transform var(--transition-slow);
+            z-index: 1000;
+            font-weight: 500;
+        }
+
+        .status-message.show {
+            transform: translateX(0);
+        }
+
+        .status-message.success {
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-left: 4px solid var(--accent-success);
+            color: var(--accent-success);
+        }
+
+        .status-message.error {
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-left: 4px solid var(--accent-danger);
+            color: var(--accent-danger);
+        }
+
+        /* Loading States */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border-default);
+            border-top: 3px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: var(--spacing-sm);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Toggle Switch */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--border-hover);
+            transition: all var(--transition-fast);
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            transition: all var(--transition-fast);
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background: var(--accent-primary);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+    </style>
+</head>
+<body>
+    <div class="config-container">
+        <div class="config-header">
+            <h1>🤖 Trading Bot Configuration</h1>
+            <p>Configure your bot's trading parameters, risk settings, and account selection</p>
+        </div>
+
+        <div class="config-sections">
+            <!-- Left Column -->
+            <div>
+                <!-- Bot Selection & Account -->
+                <div class="config-section">
+                    <h2 class="section-title">📋 Bot & Account Settings</h2>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Select Bot</label>
+                        <select id="botSelect" class="form-control" onchange="loadBotConfig()">
+                            <option value="">-- Select a Bot --</option>
+                            <option value="BOT_1">BOT_1 - EMA Cross Strategy</option>
+                            <option value="BOT_2">BOT_2 - Scalping Strategy</option>
+                            <option value="BOT_3">BOT_3 - Trend Following</option>
+                            <option value="BOT_4">BOT_4 - Mean Reversion</option>
+                            <option value="BOT_5">BOT_5 - Breakout Strategy</option>
+                            <option value="BOT_6">BOT_6 - Range Trading</option>
+                            <option value="TEST_ORB_BOT">TEST_ORB_BOT - ORB Rubber Band</option>
+                        </select>
+                    </div>
+
+                    <div class="account-selector">
+                        <div class="form-group">
+                            <label class="form-label">Trading Account</label>
+                            <select id="accountSelect" class="form-control" onchange="updateAccountInfo()">
+                                <option value="">-- Select Account --</option>
+                                <option value="DEMO">Demo Account</option>
+                                <option value="LIVE_1">Live Account 1</option>
+                                <option value="LIVE_2">Live Account 2</option>
+                                <option value="PAPER">Paper Trading</option>
+                            </select>
+                            <div class="form-help">Select the account this bot will trade on</div>
+                        </div>
+                        <div class="account-info" id="accountInfo" style="display: none;">
+                            <span>Balance: <span class="account-balance" id="accountBalance">$0.00</span></span>
+                            <span>Status: <span id="accountStatus">Disconnected</span></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Bot Description</label>
+                        <input type="text" id="botDescription" class="form-control" placeholder="Enter bot description">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Port</label>
+                        <input type="number" id="botPort" class="form-control" min="3000" max="9999" readonly>
+                        <div class="form-help">Port is automatically assigned based on bot</div>
+                    </div>
+
+                    <div class="toggle-group">
+                        <label class="form-label" style="margin-bottom: 0;">Enable Bot</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="botEnabled" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Trading Settings -->
+                <div class="config-section">
+                    <h2 class="section-title">📊 Trading Settings</h2>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Instrument</label>
+                        <select id="instrument" class="form-control">
+                            <option value="CON.F.US.MES.U25">MES - Micro E-mini S&P 500</option>
+                            <option value="CON.F.US.MNQ.U25">MNQ - Micro E-mini Nasdaq</option>
+                            <option value="CON.F.US.MYM.U25">MYM - Micro E-mini Dow</option>
+                            <option value="CON.F.US.M2K.U25">M2K - Micro E-mini Russell</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Trading Hours</label>
+                        <div class="param-grid">
+                            <div>
+                                <label class="form-label">Start Time</label>
+                                <input type="time" id="tradingStart" class="form-control" value="09:30">
+                            </div>
+                            <div>
+                                <label class="form-label">End Time</label>
+                                <input type="time" id="tradingEnd" class="form-control" value="16:00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Time Zone</label>
+                        <select id="timezone" class="form-control">
+                            <option value="America/New_York">Eastern Time (ET)</option>
+                            <option value="America/Chicago">Central Time (CT)</option>
+                            <option value="America/Denver">Mountain Time (MT)</option>
+                            <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div>
+                <!-- Strategy Configuration -->
+                <div class="config-section">
+                    <h2 class="section-title">⚙️ Strategy Configuration</h2>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Strategy Type</label>
+                        <select id="strategyType" class="form-control" onchange="loadStrategyParams()">
+                            <option value="">-- Select Strategy --</option>
+                            <option value="EMA_CROSS">EMA Crossover</option>
+                            <option value="ORB_RUBBER_BAND">ORB Rubber Band</option>
+                            <option value="SCALPING">Scalping</option>
+                            <option value="TREND_FOLLOWING">Trend Following</option>
+                            <option value="MEAN_REVERSION">Mean Reversion</option>
+                        </select>
+                    </div>
+
+                    <div id="strategyParams" class="strategy-params" style="display: none;">
+                        <!-- Dynamic strategy parameters will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Risk Management -->
+                <div class="config-section">
+                    <h2 class="section-title">🛡️ Risk Management</h2>
+                    
+                    <div class="risk-warning">
+                        ⚠️ Risk settings directly affect your capital. Configure carefully.
+                    </div>
+
+                    <div class="param-grid">
+                        <div class="form-group">
+                            <label class="form-label">$ Risk Per Trade</label>
+                            <input type="number" id="dollarRisk" class="form-control" value="100" min="10" max="1000">
+                            <div class="form-help">Maximum dollar risk per trade</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Max Consecutive Losses</label>
+                            <input type="number" id="maxLosses" class="form-control" value="3" min="1" max="10">
+                            <div class="form-help">Stop trading after X losses</div>
+                        </div>
+                    </div>
+
+                    <div class="param-grid">
+                        <div class="form-group">
+                            <label class="form-label">Stop Loss (ticks)</label>
+                            <input type="number" id="stopLoss" class="form-control" value="20" min="5" max="100">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Take Profit (R-multiple)</label>
+                            <input type="number" id="takeProfit" class="form-control" value="2" min="1" max="10" step="0.5">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Position Sizing</label>
+                        <select id="positionSizing" class="form-control">
+                            <option value="FIXED">Fixed Size</option>
+                            <option value="DOLLAR_RISK">Dollar Risk Based</option>
+                            <option value="PERCENT_RISK">Percent Risk Based</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="fixedSizeGroup">
+                        <label class="form-label">Fixed Position Size</label>
+                        <input type="number" id="fixedSize" class="form-control" value="1" min="1" max="10">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn btn-large btn-save" onclick="saveConfiguration()">
+                💾 Save Configuration
+            </button>
+            <button class="btn btn-large btn-launch" onclick="launchBot()">
+                🚀 Launch Bot
+            </button>
+        </div>
+    </div>
+
+    <!-- Status Message -->
+    <div class="status-message" id="statusMessage"></div>
+
+    <script>
+        // Bot configuration state
+        let currentConfig = {
+            botId: '',
+            account: '',
+            strategy: {},
+            risk: {},
+            tradingHours: {},
+            execution: {}
+        };
+
+        // Strategy parameter templates
+        const strategyTemplates = {
+            EMA_CROSS: {
+                title: 'EMA Crossover Parameters',
+                params: [
+                    { id: 'fastEMA', label: 'Fast EMA Period', type: 'number', default: 9, min: 5, max: 50 },
+                    { id: 'slowEMA', label: 'Slow EMA Period', type: 'number', default: 21, min: 10, max: 200 },
+                    { id: 'confirmationCandles', label: 'Confirmation Candles', type: 'number', default: 2, min: 1, max: 5 }
+                ]
+            },
+            ORB_RUBBER_BAND: {
+                title: 'ORB Rubber Band Parameters',
+                params: [
+                    { id: 'openingRangeDuration', label: 'Opening Range (minutes)', type: 'number', default: 30, min: 15, max: 60 },
+                    { id: 'orbBreakoutPercent', label: 'Breakout %', type: 'number', default: 10, min: 5, max: 50 },
+                    { id: 'orbMaxBreakoutPercent', label: 'Max Breakout %', type: 'number', default: 30, min: 20, max: 100 },
+                    { id: 'rubberBandReversalPercent', label: 'Reversal %', type: 'number', default: 50, min: 20, max: 80 },
+                    { id: 'volumeThreshold', label: 'Volume Threshold', type: 'number', default: 120, min: 50, max: 500 }
+                ]
+            },
+            SCALPING: {
+                title: 'Scalping Parameters',
+                params: [
+                    { id: 'tickProfit', label: 'Tick Profit Target', type: 'number', default: 4, min: 2, max: 10 },
+                    { id: 'tickStop', label: 'Tick Stop Loss', type: 'number', default: 6, min: 2, max: 20 },
+                    { id: 'maxTradesPerDay', label: 'Max Trades/Day', type: 'number', default: 10, min: 1, max: 50 }
+                ]
+            }
+        };
+
+        // Load bot configuration
+        async function loadBotConfig() {
+            const botId = document.getElementById('botSelect').value;
+            if (!botId) return;
+
+            try {
+                // Show loading state
+                showStatus('Loading configuration...', 'info');
+
+                // Fetch bot configuration
+                const response = await fetch(`/api/bot/config/${botId}`);
+                const config = await response.json();
+
+                // Populate form fields
+                document.getElementById('botDescription').value = config.description || '';
+                document.getElementById('botPort').value = config.port || '';
+                document.getElementById('botEnabled').checked = config.enabled !== false;
+                document.getElementById('instrument').value = config.instrument || '';
+                document.getElementById('strategyType').value = config.strategy?.type || '';
+
+                // Load strategy parameters
+                if (config.strategy?.type) {
+                    loadStrategyParams();
+                    // Populate strategy parameter values
+                    setTimeout(() => {
+                        for (const [key, value] of Object.entries(config.strategy.parameters || {})) {
+                            const input = document.getElementById(`param_${key}`);
+                            if (input) input.value = value;
+                        }
+                    }, 100);
+                }
+
+                // Load risk settings
+                document.getElementById('dollarRisk').value = config.risk?.dollarRiskPerTrade || 100;
+                document.getElementById('maxLosses').value = config.risk?.maxConsecutiveLosses || 3;
+                document.getElementById('stopLoss').value = config.exits?.stopLoss?.value || 20;
+                document.getElementById('takeProfit').value = config.exits?.profitTarget?.value || 2;
+                document.getElementById('positionSizing').value = config.risk?.positionSizing?.method || 'FIXED';
+                document.getElementById('fixedSize').value = config.risk?.positionSizing?.fixedSize || 1;
+
+                // Load trading hours
+                if (config.tradingHours?.sessions?.[0]) {
+                    const session = config.tradingHours.sessions[0];
+                    document.getElementById('tradingStart').value = session.start || '09:30';
+                    document.getElementById('tradingEnd').value = session.end || '16:00';
+                    document.getElementById('timezone').value = session.timezone || 'America/New_York';
+                }
+
+                currentConfig = config;
+                showStatus('Configuration loaded', 'success');
+            } catch (error) {
+                showStatus(`Error loading configuration: ${error.message}`, 'error');
+            }
+        }
+
+        // Load strategy-specific parameters
+        function loadStrategyParams() {
+            const strategyType = document.getElementById('strategyType').value;
+            const paramsContainer = document.getElementById('strategyParams');
+            
+            if (!strategyType || !strategyTemplates[strategyType]) {
+                paramsContainer.style.display = 'none';
+                return;
+            }
+
+            const template = strategyTemplates[strategyType];
+            let html = `<h3>${template.title}</h3><div class="param-grid">`;
+
+            template.params.forEach(param => {
+                html += `
+                    <div class="form-group">
+                        <label class="form-label">${param.label}</label>
+                        <input type="${param.type}" 
+                               id="param_${param.id}" 
+                               class="form-control" 
+                               value="${param.default}"
+                               min="${param.min || ''}"
+                               max="${param.max || ''}"
+                               step="${param.step || 1}">
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            paramsContainer.innerHTML = html;
+            paramsContainer.style.display = 'block';
+        }
+
+        // Update account information
+        async function updateAccountInfo() {
+            const account = document.getElementById('accountSelect').value;
+            const infoDiv = document.getElementById('accountInfo');
+            
+            if (!account) {
+                infoDiv.style.display = 'none';
+                return;
+            }
+
+            try {
+                // Simulate account info fetch (replace with actual API call)
+                const accountData = {
+                    DEMO: { balance: 50000, status: 'Connected' },
+                    LIVE_1: { balance: 25000, status: 'Connected' },
+                    LIVE_2: { balance: 10000, status: 'Disconnected' },
+                    PAPER: { balance: 100000, status: 'Connected' }
+                };
+
+                const info = accountData[account] || { balance: 0, status: 'Unknown' };
+                document.getElementById('accountBalance').textContent = `$${info.balance.toLocaleString()}`;
+                document.getElementById('accountStatus').textContent = info.status;
+                document.getElementById('accountStatus').style.color = 
+                    info.status === 'Connected' ? 'var(--accent-success)' : 'var(--accent-danger)';
+                
+                infoDiv.style.display = 'block';
+            } catch (error) {
+                showStatus(`Error fetching account info: ${error.message}`, 'error');
+            }
+        }
+
+        // Save configuration
+        async function saveConfiguration() {
+            const botId = document.getElementById('botSelect').value;
+            if (!botId) {
+                showStatus('Please select a bot first', 'error');
+                return;
+            }
+
+            // Build configuration object
+            const config = {
+                botId: botId,
+                port: parseInt(document.getElementById('botPort').value),
+                enabled: document.getElementById('botEnabled').checked,
+                description: document.getElementById('botDescription').value,
+                account: document.getElementById('accountSelect').value,
+                instrument: document.getElementById('instrument').value,
+                strategy: {
+                    type: document.getElementById('strategyType').value,
+                    parameters: {}
+                },
+                risk: {
+                    dollarRiskPerTrade: parseInt(document.getElementById('dollarRisk').value),
+                    maxConsecutiveLosses: parseInt(document.getElementById('maxLosses').value),
+                    positionSizing: {
+                        method: document.getElementById('positionSizing').value,
+                        fixedSize: parseInt(document.getElementById('fixedSize').value)
+                    }
+                },
+                tradingHours: {
+                    enabled: true,
+                    sessions: [{
+                        name: 'Regular',
+                        start: document.getElementById('tradingStart').value,
+                        end: document.getElementById('tradingEnd').value,
+                        timezone: document.getElementById('timezone').value,
+                        days: [1, 2, 3, 4, 5]
+                    }]
+                },
+                exits: {
+                    stopLoss: {
+                        type: 'FIXED',
+                        value: parseInt(document.getElementById('stopLoss').value)
+                    },
+                    profitTarget: {
+                        enabled: true,
+                        type: 'RISK_MULTIPLE',
+                        value: parseFloat(document.getElementById('takeProfit').value)
+                    }
+                }
+            };
+
+            // Collect strategy parameters
+            const strategyType = config.strategy.type;
+            if (strategyType && strategyTemplates[strategyType]) {
+                strategyTemplates[strategyType].params.forEach(param => {
+                    const input = document.getElementById(`param_${param.id}`);
+                    if (input) {
+                        config.strategy.parameters[param.id] = 
+                            param.type === 'number' ? parseFloat(input.value) : input.value;
+                    }
+                });
+            }
+
+            try {
+                // Save configuration
+                const response = await fetch(`/api/bot/config/${botId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                if (response.ok) {
+                    showStatus('Configuration saved successfully', 'success');
+                } else {
+                    throw new Error('Failed to save configuration');
+                }
+            } catch (error) {
+                showStatus(`Error saving configuration: ${error.message}`, 'error');
+            }
+        }
+
+        // Launch bot with current configuration
+        async function launchBot() {
+            const botId = document.getElementById('botSelect').value;
+            const account = document.getElementById('accountSelect').value;
+
+            if (!botId) {
+                showStatus('Please select a bot', 'error');
+                return;
+            }
+
+            if (!account) {
+                showStatus('Please select a trading account', 'error');
+                return;
+            }
+
+            try {
+                // First save the configuration
+                await saveConfiguration();
+
+                // Launch the bot
+                const response = await fetch(`/api/bot/${botId}/launch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account: account })
+                });
+
+                if (response.ok) {
+                    showStatus(`Bot ${botId} launched successfully!`, 'success');
+                    // Redirect to control panel after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = 'http://localhost:8080';
+                    }, 2000);
+                } else {
+                    throw new Error('Failed to launch bot');
+                }
+            } catch (error) {
+                showStatus(`Error launching bot: ${error.message}`, 'error');
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type} show`;
+            
+            setTimeout(() => {
+                statusEl.classList.remove('show');
+            }, 3000);
+        }
+
+        // Handle position sizing method change
+        document.getElementById('positionSizing').addEventListener('change', (e) => {
+            const fixedSizeGroup = document.getElementById('fixedSizeGroup');
+            fixedSizeGroup.style.display = e.target.value === 'FIXED' ? 'block' : 'none';
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load available accounts from connection manager
+            // This would be replaced with actual API call
+            updateAccountInfo();
+            
+            // Check if a bot was specified in the URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const botId = urlParams.get('bot');
+            if (botId) {
+                document.getElementById('botSelect').value = botId;
+                loadBotConfig();
+            }
+        });
+    </script>
+</body>
+</html>

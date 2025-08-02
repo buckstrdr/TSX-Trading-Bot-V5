@@ -119,7 +119,7 @@ class ManualTradingServerV2 {
         this.app.use(express.static(path.join(__dirname, 'public')));
         
         // Serve V5 UI shared assets
-        this.app.use('/TSX_TRADING_BOT_V5/src/ui/shared', express.static(path.join(__dirname, '..', 'src', 'ui', 'shared')));
+        this.app.use('/src/ui/shared', express.static(path.join(__dirname, '..', 'src', 'ui', 'shared')));
         
         this.log('✅ Express setup complete');
         
@@ -3178,8 +3178,8 @@ class ManualTradingServerV2 {
 <html>
 <head>
     <title>Manual Trading v2 - Enhanced</title>
-    <link rel="stylesheet" href="/TSX_TRADING_BOT_V5/src/ui/shared/premium-dark-theme.css">
-    <link rel="stylesheet" href="/TSX_TRADING_BOT_V5/src/ui/shared/components.css">
+    <link rel="stylesheet" href="/src/ui/shared/premium-dark-theme.css">
+    <link rel="stylesheet" href="/src/ui/shared/components.css">
     <style>
         /* Manual Trading Specific Styles */
         .panel {

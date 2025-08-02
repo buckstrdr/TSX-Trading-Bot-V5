@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+    <link rel="stylesheet" href="/shared/premium-dark-theme.css">
+    <link rel="stylesheet" href="/shared/components.css">
+    <style>
+        /* Bot Dashboard Specific Styles */
+        .dashboard-container {
+            padding: var(--spacing-xl);
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .dashboard-header {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bot-info {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-lg);
+        }
+
+        .bot-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .status-badge {
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .status-badge.running {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-success);
+            border: 1px solid var(--accent-success);
+        }
+
+        .status-badge.stopped {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-danger);
+            border: 1px solid var(--accent-danger);
+        }
+
+        .status-badge.paused {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-warning);
+            border: 1px solid var(--accent-warning);
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: var(--spacing-md);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .dashboard-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: var(--spacing-lg);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: var(--spacing-md);
+        }
+
+        .metric-item {
+            background: var(--bg-tertiary);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .metric-value.positive {
+            color: var(--accent-success);
+        }
+
+        .metric-value.negative {
+            color: var(--accent-danger);
+        }
+
+        /* Position Display */
+        .position-display {
+            background: var(--bg-tertiary);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .position-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .position-side {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .position-side.long {
+            color: var(--accent-success);
+        }
+
+        .position-side.short {
+            color: var(--accent-danger);
+        }
+
+        /* Trade Table */
+        .trade-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .trade-table th,
+        .trade-table td {
+            padding: var(--spacing-sm);
+            text-align: left;
+            border-bottom: 1px solid var(--border-default);
+        }
+
+        .trade-table th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .trade-table td {
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        /* Logs */
+        .logs-container {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
+        }
+
+        .log-entry {
+            margin-bottom: var(--spacing-xs);
+            padding: var(--spacing-xs);
+        }
+
+        .log-entry.error {
+            color: var(--accent-danger);
+        }
+
+        .log-entry.warn {
+            color: var(--accent-warning);
+        }
+
+        .log-entry.info {
+            color: var(--text-secondary);
+        }
+
+        /* Real-time indicators */
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-success);
+            border-radius: 50%;
+            margin-left: var(--spacing-sm);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Market Data */
+        .market-data {
+            display: flex;
+            justify-content: space-around;
+            padding: var(--spacing-lg);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+        }
+
+        .market-item {
+            text-align: center;
+        }
+
+        .market-label {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .market-value {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <div class="bot-info">
+                <span class="bot-name" id="botName">Loading...</span>
+                <span class="status-badge stopped" id="statusBadge">Stopped</span>
+                <span class="live-indicator" id="liveIndicator" style="display: none;"></span>
+            </div>
+            <div class="control-buttons">
+                <button class="btn btn-success" id="startBtn" onclick="startBot()">Start</button>
+                <button class="btn btn-danger" id="stopBtn" onclick="stopBot()" disabled>Stop</button>
+                <button class="btn btn-warning" id="pauseBtn" onclick="pauseBot()" disabled>Pause</button>
+                <button class="btn btn-primary" id="configBtn" onclick="openConfig()">Config</button>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="dashboard-grid">
+            <!-- Left Column -->
+            <div>
+                <!-- Position & Market Data -->
+                <div class="dashboard-card">
+                    <h3 class="card-title">📊 Position & Market</h3>
+                    
+                    <div class="position-display" id="positionDisplay">
+                        <div class="position-info">
+                            <div>
+                                <div class="position-side" id="positionSide">No Position</div>
+                                <div class="text-secondary" id="positionDetails">--</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="metric-value" id="positionPnL">$0.00</div>
+                                <div class="text-secondary">P&L</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="market-data">
+                        <div class="market-item">
+                            <div class="market-label">Last</div>
+                            <div class="market-value" id="lastPrice">--</div>
+                        </div>
+                        <div class="market-item">
+                            <div class="market-label">Bid</div>
+                            <div class="market-value" id="bidPrice">--</div>
+                        </div>
+                        <div class="market-item">
+                            <div class="market-label">Ask</div>
+                            <div class="market-value" id="askPrice">--</div>
+                        </div>
+                        <div class="market-item">
+                            <div class="market-label">Volume</div>
+                            <div class="market-value" id="volume">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div class="dashboard-card">
+                    <h3 class="card-title">📈 Performance Metrics</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-item">
+                            <div class="metric-label">Total Trades</div>
+                            <div class="metric-value" id="totalTrades">0</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Win Rate</div>
+                            <div class="metric-value" id="winRate">0%</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Total P&L</div>
+                            <div class="metric-value" id="totalPnL">$0</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Profit Factor</div>
+                            <div class="metric-value" id="profitFactor">0.0</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Avg Win</div>
+                            <div class="metric-value positive" id="avgWin">$0</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Avg Loss</div>
+                            <div class="metric-value negative" id="avgLoss">$0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div>
+                <!-- Recent Trades -->
+                <div class="dashboard-card">
+                    <h3 class="card-title">💹 Recent Trades</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="trade-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Side</th>
+                                    <th>Qty</th>
+                                    <th>Price</th>
+                                    <th>P&L</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tradesTableBody">
+                                <tr>
+                                    <td colspan="5" class="text-center text-secondary">No trades yet</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- System Logs -->
+                <div class="dashboard-card">
+                    <h3 class="card-title">📋 System Logs</h3>
+                    <div class="logs-container" id="logsContainer">
+                        <div class="log-entry info">Waiting for logs...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // WebSocket connection
+        const socket = io();
+        let botState = null;
+
+        // Connect to bot
+        socket.on('connect', () => {
+            console.log('Connected to bot');
+        });
+
+        // Handle state updates
+        socket.on('state', (state) => {
+            botState = state;
+            updateUI(state);
+        });
+
+        // Handle status changes
+        socket.on('status', (status) => {
+            updateStatus(status);
+        });
+
+        // Handle market data
+        socket.on('market-data', (data) => {
+            updateMarketData(data);
+        });
+
+        // Handle trades
+        socket.on('trade', (trade) => {
+            addTrade(trade);
+        });
+
+        // Handle position updates
+        socket.on('position', (position) => {
+            updatePosition(position);
+        });
+
+        // Handle metrics updates
+        socket.on('metrics', (metrics) => {
+            updateMetrics(metrics);
+        });
+
+        // Handle logs
+        socket.on('log', (log) => {
+            addLog(log);
+        });
+
+        // Update entire UI
+        function updateUI(state) {
+            document.getElementById('botName').textContent = state.botId;
+            updateStatus(state.status);
+            updatePosition(state.position);
+            updateMetrics(state.metrics);
+            updateMarketData(state.marketData);
+            
+            // Update trades table
+            const tbody = document.getElementById('tradesTableBody');
+            tbody.innerHTML = '';
+            if (state.trades.length > 0) {
+                state.trades.slice(-10).reverse().forEach(trade => {
+                    addTradeRow(trade);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary">No trades yet</td></tr>';
+            }
+        }
+
+        // Update status
+        function updateStatus(status) {
+            const badge = document.getElementById('statusBadge');
+            const indicator = document.getElementById('liveIndicator');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            
+            badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            badge.className = `status-badge ${status}`;
+            
+            if (status === 'running') {
+                indicator.style.display = 'inline-block';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                pauseBtn.disabled = false;
+                pauseBtn.textContent = 'Pause';
+            } else if (status === 'paused') {
+                indicator.style.display = 'none';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                pauseBtn.disabled = false;
+                pauseBtn.textContent = 'Resume';
+            } else {
+                indicator.style.display = 'none';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                pauseBtn.disabled = true;
+            }
+        }
+
+        // Update market data
+        function updateMarketData(data) {
+            document.getElementById('lastPrice').textContent = data.lastPrice ? `$${data.lastPrice.toFixed(2)}` : '--';
+            document.getElementById('bidPrice').textContent = data.bid ? `$${data.bid.toFixed(2)}` : '--';
+            document.getElementById('askPrice').textContent = data.ask ? `$${data.ask.toFixed(2)}` : '--';
+            document.getElementById('volume').textContent = data.volume || '--';
+        }
+
+        // Update position
+        function updatePosition(position) {
+            const sideEl = document.getElementById('positionSide');
+            const detailsEl = document.getElementById('positionDetails');
+            const pnlEl = document.getElementById('positionPnL');
+            
+            if (position) {
+                sideEl.textContent = position.side.toUpperCase();
+                sideEl.className = `position-side ${position.side}`;
+                detailsEl.textContent = `${position.quantity} @ $${position.entryPrice.toFixed(2)}`;
+                
+                const pnl = position.unrealizedPnL || 0;
+                pnlEl.textContent = `$${pnl.toFixed(2)}`;
+                pnlEl.className = `metric-value ${pnl >= 0 ? 'positive' : 'negative'}`;
+            } else {
+                sideEl.textContent = 'No Position';
+                sideEl.className = 'position-side';
+                detailsEl.textContent = '--';
+                pnlEl.textContent = '$0.00';
+                pnlEl.className = 'metric-value';
+            }
+        }
+
+        // Update metrics
+        function updateMetrics(metrics) {
+            document.getElementById('totalTrades').textContent = metrics.totalTrades;
+            document.getElementById('winRate').textContent = `${metrics.winRate.toFixed(1)}%`;
+            document.getElementById('totalPnL').textContent = `$${metrics.totalPnL.toFixed(2)}`;
+            document.getElementById('totalPnL').className = `metric-value ${metrics.totalPnL >= 0 ? 'positive' : 'negative'}`;
+            document.getElementById('profitFactor').textContent = metrics.profitFactor.toFixed(2);
+            document.getElementById('avgWin').textContent = `$${metrics.averageWin.toFixed(2)}`;
+            document.getElementById('avgLoss').textContent = `$${metrics.averageLoss.toFixed(2)}`;
+        }
+
+        // Add trade to table
+        function addTrade(trade) {
+            addTradeRow(trade);
+            
+            // Remove old rows if more than 10
+            const tbody = document.getElementById('tradesTableBody');
+            while (tbody.children.length > 10) {
+                tbody.removeChild(tbody.lastChild);
+            }
+        }
+
+        function addTradeRow(trade) {
+            const tbody = document.getElementById('tradesTableBody');
+            const row = tbody.insertRow(0);
+            
+            const time = new Date(trade.timestamp).toLocaleTimeString();
+            const pnlClass = trade.pnl >= 0 ? 'positive' : 'negative';
+            
+            row.innerHTML = `
+                <td>${time}</td>
+                <td>${trade.side}</td>
+                <td>${trade.quantity}</td>
+                <td>$${trade.price.toFixed(2)}</td>
+                <td class="${pnlClass}">$${trade.pnl.toFixed(2)}</td>
+            `;
+        }
+
+        // Add log entry
+        function addLog(log) {
+            const container = document.getElementById('logsContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${log.level}`;
+            
+            const time = new Date(log.timestamp).toLocaleTimeString();
+            entry.textContent = `[${time}] ${log.message}`;
+            
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            // Keep only last 100 logs
+            while (container.children.length > 100) {
+                container.removeChild(container.firstChild);
+            }
+        }
+
+        // Control functions
+        async function startBot() {
+            const account = prompt('Enter trading account (DEMO/LIVE_1/PAPER):', 'DEMO');
+            if (!account) return;
+            
+            try {
+                const response = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function stopBot() {
+            if (!confirm('Are you sure you want to stop the bot?')) return;
+            
+            try {
+                const response = await fetch('/api/stop', { method: 'POST' });
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function pauseBot() {
+            const isPaused = botState?.status === 'paused';
+            const endpoint = isPaused ? '/api/resume' : '/api/pause';
+            
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        function openConfig() {
+            // Open the bot's own configuration page
+            // Use window.open to open in same window but ensure proper navigation
+            const configUrl = `/config.html?bot=${botState?.botId || 'BOT_1'}`;
+            console.log('Opening config:', configUrl);
+            window.location.assign(configUrl);
+        }
+
+        // Load initial state
+        fetch('/api/state')
+            .then(res => res.json())
+            .then(state => updateUI(state))
+            .catch(console.error);
+    </script>
+</body>
+</html>
