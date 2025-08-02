@@ -1,0 +1,80 @@
+botId: BOT_2
+port: 3005
+enabled: false
+description: Test bot
+instrument: CON.F.US.MES.U25
+strategy:
+  type: EMA_CROSS
+  parameters:
+    fastEMA: 9
+    slowEMA: 21
+    mode: STANDARD
+    maxBarsSinceEMA: 15
+    postWinCandleTimeout: 3
+    postLossCandleTimeout: 10
+    stopLossBuffer: 2  # Ticks beyond slow EMA for stop loss
+    riskRewardRatio: 3  # Take profit multiplier
+    trailingStopEnabled: false  # Enable trailing stop for this strategy
+risk:
+  dollarRiskPerTrade: 200
+  maxConsecutiveLosses: 3
+  positionSizing:
+    method: FIXED
+    fixedSize: 1
+tradingHours:
+  enabled: true
+  sessions:
+    - name: Morning
+      start: '09:30'
+      end: '12:00'
+      timezone: America/New_York
+      days:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+    - name: Afternoon
+      start: '13:00'
+      end: '16:00'
+      timezone: America/New_York
+      days:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+execution:
+  orderType: MARKET
+  slippage:
+    maxTicks: 3
+  retryFailedOrders: true
+  maxRetries: 2
+exits:
+  stopLoss:
+    type: FIXED
+    value: 25
+    moveToBreakeven: true
+    breakevenTrigger: 1.2
+  profitTarget:
+    enabled: true
+    type: RISK_MULTIPLE
+    value: 2.5
+    partialExits:
+      - percentage: 30
+        target: 1
+      - percentage: 40
+        target: 1.8
+      - percentage: 30
+        target: 2.5
+  trailingStop:
+    enabled: false
+    trigger: 1.0  # R-multiple to activate trailing stop
+    distance: 10  # Ticks to trail behind best price
+    adjustTP: true  # Move TP with trailing stop
+monitoring:
+  trackMetrics: true
+  metricsInterval: 300000
+  alertOnDrawdown: 600
+  logTrades: true
+  logLevel: INFO

@@ -1,0 +1,88 @@
+# BOT_5 Configuration
+# ORB + Rubber Band Strategy - High Frequency
+
+botId: BOT_5
+port: 3008
+enabled: false
+description: Test bot
+
+# Instrument
+instrument: CON.F.US.M2K.U25  # Micro E-mini Russell
+
+# Strategy Configuration
+strategy:
+  type: EMA_CROSS
+  parameters:
+    fastEMA: 9
+    slowEMA: 21
+    mode: STANDARD
+    maxBarsSinceEMA: 15
+    postWinCandleTimeout: 3
+    postLossCandleTimeout: 10
+    stopLossBuffer: 2  # Ticks beyond slow EMA for stop loss
+    riskRewardRatio: 3  # Take profit multiplier
+    trailingStopEnabled: false  # Enable trailing stop for this strategy
+
+# Risk Management
+risk:
+  dollarRiskPerTrade: 150  # Lower risk for mixed signals
+  maxDailyLoss: 600
+  maxDailyProfit: 500
+  dailyProfitLimitEnabled: true
+  maxOpenPositions: 1
+  maxConsecutiveLosses: 3
+  riskRewardRatio: 2.5  # Higher RR requirement
+  positionSizing:
+    method: FIXED
+    fixedSize: 1
+
+# Trading Hours
+tradingHours:
+  enabled: true
+  sessions:
+    - name: Regular
+      start: "10:00"  # Wait for market to settle
+      end: "15:30"
+      timezone: America/New_York
+      days: [1, 2, 3, 4, 5]
+
+# Order Execution
+execution:
+  orderType: MARKET
+  slippage:
+    maxTicks: 2
+  retryFailedOrders: true
+  maxRetries: 2
+
+# Stop Loss and Profit Targets
+exits:
+  stopLoss:
+    type: FIXED
+    value: 15  # Tight stop
+    moveToBreakeven: true
+    breakevenTrigger: 1.8
+  profitTarget:
+    enabled: true
+    type: RISK_MULTIPLE
+    value: 2.5
+    partialExits:
+      - percentage: 30
+        target: 1.0
+      - percentage: 30
+        target: 1.8
+      - percentage: 40
+        target: 2.5
+  trailingStop:
+    enabled: false
+    trigger: 1.0  # R-multiple to activate trailing stop
+    distance: 10  # Ticks to trail behind best price
+    adjustTP: true  # Move TP with trailing stop
+
+
+# Performance Monitoring
+monitoring:
+  trackMetrics: true
+  metricsInterval: 300000
+  alertOnDrawdown: 400
+  logTrades: true
+  logLevel: INFO

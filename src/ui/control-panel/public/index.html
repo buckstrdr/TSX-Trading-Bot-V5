@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSX Trading Bot V4 Control Panel</title>
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎛️</text></svg>">
+    <link rel="stylesheet" href="/src/ui/shared/premium-dark-theme.css">
+    <link rel="stylesheet" href="/src/ui/shared/components.css">
+    <style>
+        /* Control Panel Specific Styles */
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-default);
+            padding: var(--spacing-xl);
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .header .version {
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .status-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            transition: all var(--transition-normal);
+        }
+
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.running {
+            background: var(--accent-success);
+            box-shadow: 0 0 10px var(--accent-success);
+        }
+
+        .status-dot.stopped {
+            background: var(--accent-danger);
+            box-shadow: 0 0 10px var(--accent-danger);
+        }
+
+        .status-dot.starting,
+        .status-dot.stopping,
+        .status-dot.partial {
+            background: var(--accent-warning);
+            box-shadow: 0 0 10px var(--accent-warning);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .control-buttons {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        /* Safety Switch Styles */
+        .safety-switch {
+            display: flex;
+            align-items: center;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-sm) var(--spacing-md);
+            transition: all var(--transition-normal);
+        }
+
+        .safety-switch:hover {
+            border-color: var(--border-hover);
+        }
+
+        .switch-label {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            cursor: pointer;
+            margin: 0;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .switch-text {
+            color: var(--text-primary);
+            user-select: none;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--accent-danger);
+            transition: all var(--transition-normal);
+            border-radius: 12px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            transition: all var(--transition-normal);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input:checked + .slider {
+            background: var(--accent-warning);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Demo mode styling - orange/yellow for demo, red for live */
+        .demo-mode {
+            background: var(--accent-warning) !important;
+        }
+
+        .live-mode {
+            background: var(--accent-danger) !important;
+        }
+
+        .btn-start {
+            background: var(--accent-success);
+            color: white;
+        }
+
+        .btn-stop {
+            background: var(--accent-danger);
+            color: white;
+        }
+
+        .services-section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            margin-bottom: var(--spacing-md);
+            color: var(--text-primary);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--spacing-lg);
+        }
+        
+        @media (max-width: 1200px) {
+            .services-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (max-width: 900px) {
+            .services-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .service-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-md);
+            text-align: center;
+            transition: all var(--transition-normal);
+            position: relative;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .service-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-2);
+        }
+
+        .service-card.active {
+            border-color: var(--accent-success);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .service-card.disabled {
+            opacity: 0.5;
+        }
+
+        .service-icon {
+            font-size: 1.75rem;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .service-name {
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+            color: var(--text-primary);
+        }
+
+        .service-status {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .service-port {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .service-controls {
+            display: flex;
+            gap: var(--spacing-xs);
+            margin-top: auto;
+            padding-top: var(--spacing-sm);
+        }
+        
+        .btn-service {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            flex: 1;
+            font-weight: 500;
+        }
+        
+        .btn-service:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-service-start {
+            background: var(--accent-success);
+            color: white;
+        }
+        
+        .btn-service-start:hover:not(:disabled) {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+        
+        .btn-service-stop {
+            background: var(--accent-danger);
+            color: white;
+        }
+        
+        .btn-service-stop:hover:not(:disabled) {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+
+        .btn-service-config {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-service-config:hover:not(:disabled) {
+            background: var(--accent-primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .bot-strategy {
+            font-size: 0.75rem;
+            color: var(--accent-primary);
+            margin-top: var(--spacing-xs);
+        }
+
+        .logs-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+        }
+
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .logs-header h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .logs-container {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin-bottom: var(--spacing-xs);
+            padding: var(--spacing-xs) 0;
+            border-bottom: 1px solid var(--border-default);
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-entry.error {
+            color: var(--accent-danger);
+        }
+
+        .log-entry.warn {
+            color: var(--accent-warning);
+        }
+
+        .log-entry.success {
+            color: var(--accent-success);
+        }
+
+        .log-entry.info {
+            color: var(--accent-primary);
+        }
+
+        .log-timestamp {
+            color: var(--text-tertiary);
+            font-size: 0.75rem;
+        }
+
+        .footer {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-default);
+            padding: var(--spacing-md);
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        /* Spinner already defined in premium-dark-theme.css */
+
+        /* Toast notifications - extends alert styles */
+        .toast {
+            position: fixed;
+            bottom: var(--spacing-xl);
+            right: var(--spacing-xl);
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-3);
+            transform: translateX(400px);
+            transition: transform var(--transition-slow);
+            z-index: 1000;
+            font-weight: 500;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-left: 4px solid var(--accent-success);
+            color: var(--accent-success);
+        }
+
+        .toast.error {
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-left: 4px solid var(--accent-danger);
+            color: var(--accent-danger);
+        }
+
+        .quick-links {
+            margin-top: var(--spacing-md);
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .quick-link {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            color: var(--accent-primary);
+            transition: all var(--transition-fast);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .quick-link:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+        }
+
+        .shutdown-btn {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--accent-danger);
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .shutdown-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: var(--accent-danger);
+        }
+
+        .placeholder {
+            background: var(--bg-tertiary);
+            border: 2px dashed var(--border-hover);
+            padding: var(--spacing-xl);
+            text-align: center;
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+        }
+
+        .placeholder-icon {
+            font-size: 3rem;
+            margin-bottom: var(--spacing-md);
+            opacity: 0.5;
+        }
+        
+        /* Refresh button styling */
+        .btn-refresh {
+            background: var(--accent-primary);
+            color: white;
+        }
+        
+        .btn-refresh:hover:not(:disabled) {
+            background: var(--accent-primary-hover);
+        }
+        
+        .btn-bot-open:hover:not(:disabled) {
+            background: var(--accent-primary-hover) !important;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎛️ TSX Trading Bot <span class="version">V4</span> Control Panel</h1>
+        <p>Manage all trading services, bots, and configurations from one interface</p>
+        <div class="quick-links">
+            <a href="http://localhost:3000" target="_blank" class="quick-link">🌐 Global Configuration</a>
+            <a href="http://localhost:7500/health" target="_blank" class="quick-link">🔌 Connection Manager</a>
+            <a href="http://localhost:7600/health" target="_blank" class="quick-link">🔄 Trading Aggregator</a>
+            <a href="http://localhost:3003" target="_blank" class="quick-link">🎯 Manual Trading</a>
+            <button onclick="shutdownControlPanel()" class="quick-link shutdown-btn">🛑 Shutdown Control Panel</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="status-panel">
+            <div class="status-header">
+                <div class="status-indicator">
+                    <div class="status-dot stopped" id="statusDot"></div>
+                    <span id="statusText">System Stopped</span>
+                </div>
+                <div class="control-buttons">
+                    <div class="safety-switch">
+                        <label class="switch-label">
+                            <span class="switch-text" id="switchText">Demo Only</span>
+                            <div class="switch">
+                                <input type="checkbox" id="demoModeSwitch" checked onchange="toggleDemoMode()">
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                    </div>
+                    <button class="btn btn-start" id="startBtn" onclick="startAll()">
+                        <span class="btn-text">Start All</span>
+                    </button>
+                    <button class="btn btn-stop" id="stopBtn" onclick="stopAll()" disabled>
+                        <span class="btn-text">Stop All</span>
+                    </button>
+                    <button class="btn button-primary btn-refresh" id="refreshBtn" onclick="refreshStatus()">
+                        <span class="btn-text">🔄 Refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configuration Options -->
+            <div class="config-section" style="margin: 1.5rem 0; padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Connection Manager Options</h4>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="microOnlyCheckbox" style="width: 18px; height: 18px; cursor: pointer;" checked>
+                        <span style="color: var(--text-primary);">Micro Contracts Only</span>
+                    </label>
+                    <span style="color: var(--text-secondary); font-size: 0.9rem;">(Filters to show only micro futures contracts)</span>
+                </div>
+            </div>
+
+            <!-- Core Services -->
+            <div class="services-section">
+                <h3 class="section-title">🔧 Core Services</h3>
+                <div class="services-grid">
+                    <div class="service-card" id="redis-card">
+                        <div class="service-icon">🗄️</div>
+                        <div class="service-name">Redis</div>
+                        <div class="service-status" id="redis-status">Stopped</div>
+                        <div class="service-port">Cache & Messaging</div>
+                        <div class="service-controls">
+                            <button class="btn-service btn-service-start" onclick="startService('redis')">Start</button>
+                            <button class="btn-service btn-service-stop" onclick="stopService('redis')">Stop</button>
+                        </div>
+                    </div>
+                    <div class="service-card" id="connection-card">
+                        <div class="service-icon">🔌</div>
+                        <div class="service-name">Connection Manager</div>
+                        <div class="service-status" id="connection-status">Stopped</div>
+                        <div class="service-port">Port 7500</div>
+                        <div class="service-controls">
+                            <button class="btn-service btn-service-start" onclick="startService('connectionManager')">Start</button>
+                            <button class="btn-service btn-service-stop" onclick="stopService('connectionManager')">Stop</button>
+                        </div>
+                    </div>
+                    <div class="service-card" id="aggregator-card">
+                        <div class="service-icon">🔄</div>
+                        <div class="service-name">Trading Aggregator</div>
+                        <div class="service-status" id="aggregator-status">Stopped</div>
+                        <div class="service-port">Port 7600</div>
+                        <div class="service-controls">
+                            <button class="btn-service btn-service-start" onclick="startService('tradingAggregator')">Start</button>
+                            <button class="btn-service btn-service-stop" onclick="stopService('tradingAggregator')">Stop</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Management Services -->
+            <div class="services-section">
+                <h3 class="section-title">📊 Management Services</h3>
+                <div class="services-grid">
+                    <div class="service-card" id="config-ui-card">
+                        <div class="service-icon">⚙️</div>
+                        <div class="service-name">Configuration UI</div>
+                        <div class="service-status" id="config-ui-status">Stopped</div>
+                        <div class="service-port">Port 3000</div>
+                        <div class="service-controls">
+                            <button class="btn-service btn-service-start" onclick="startService('configurationUI')">Start</button>
+                            <button class="btn-service btn-service-stop" onclick="stopService('configurationUI')">Stop</button>
+                        </div>
+                    </div>
+                    <div class="service-card" id="manual-card">
+                        <div class="service-icon">🎯</div>
+                        <div class="service-name">Manual Trading</div>
+                        <div class="service-status" id="manual-status">Stopped</div>
+                        <div class="service-port">Port 3003</div>
+                        <div class="service-controls">
+                            <button class="btn-service btn-service-start" onclick="startService('manualTrading')">Start</button>
+                            <button class="btn-service btn-service-stop" onclick="stopService('manualTrading')">Stop</button>
+                        </div>
+                    </div>
+                    <div class="service-card disabled">
+                        <div class="placeholder">
+                            <div class="placeholder-icon">📈</div>
+                            <div class="service-name">Simulation Mode</div>
+                            <div class="service-status">Coming Soon</div>
+                            <div class="service-port">Paper Trading</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trading Bots -->
+            <div class="services-section">
+                <h3 class="section-title">🤖 Trading Bots</h3>
+                <div class="services-grid" id="botsGrid">
+                    <!-- Bot cards will be dynamically generated -->
+                </div>
+            </div>
+
+        </div>
+
+        <div class="logs-panel">
+            <div class="logs-header">
+                <h3>📋 System Logs</h3>
+                <button class="btn" onclick="clearLogs()" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Clear</button>
+            </div>
+            <div class="logs-container" id="logsContainer">
+                <div class="log-entry info">Waiting for logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>TSX Trading Bot V4 Control Panel | <span id="uptime">Uptime: 0s</span></p>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let systemState = null;
+        let botConfigs = {};
+        let uptimeInterval = null;
+
+        // Connect to WebSocket
+        socket.on('connect', () => {
+            console.log('Connected to Control Panel server');
+            showToast('Connected to server', 'success');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            showToast('Disconnected from server', 'error');
+        });
+
+        // Handle status updates
+        socket.on('statusUpdate', (state) => {
+            systemState = state;
+            updateUI();
+        });
+
+        // Handle bot configs
+        socket.on('botConfigs', (configs) => {
+            botConfigs = configs;
+            renderBotCards();
+        });
+
+
+        // Handle logs
+        socket.on('log', (logEntry) => {
+            addLogEntry(logEntry);
+        });
+
+        socket.on('logs', (logs) => {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '';
+            logs.forEach(log => addLogEntry(log));
+        });
+
+        // UI Update function
+        function updateUI() {
+            if (!systemState) return;
+
+            // Update status indicator
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            statusDot.className = `status-dot ${systemState.status}`;
+            
+            switch (systemState.status) {
+                case 'running':
+                    statusText.textContent = 'System Running';
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    break;
+                case 'stopped':
+                    statusText.textContent = 'System Stopped';
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    break;
+                case 'starting':
+                    statusText.innerHTML = 'Starting... <span class="spinner"></span>';
+                    startBtn.disabled = true;
+                    stopBtn.disabled = true;
+                    break;
+                case 'stopping':
+                    statusText.innerHTML = 'Stopping... <span class="spinner"></span>';
+                    startBtn.disabled = true;
+                    stopBtn.disabled = true;
+                    break;
+                case 'partial':
+                    statusText.textContent = 'Partial (Some services running)';
+                    startBtn.disabled = false;
+                    stopBtn.disabled = false;
+                    break;
+            }
+
+            // Update demo mode switch
+            updateDemoModeUI();
+
+            // Update service cards
+            updateServiceCard('redis', systemState.services.redis);
+            updateServiceCard('connection', systemState.services.connectionManager);
+            updateServiceCard('aggregator', systemState.services.tradingAggregator);
+            updateServiceCard('config-ui', systemState.services.configurationUI);
+            updateServiceCard('manual', systemState.services.manualTrading);
+            
+            // Update bot cards
+            Object.keys(systemState.services.bots).forEach(botId => {
+                updateBotCard(botId, systemState.services.bots[botId]);
+            });
+
+            // Update uptime
+            if (systemState.status === 'running' && systemState.startTime) {
+                startUptimeCounter();
+            } else {
+                stopUptimeCounter();
+            }
+        }
+
+        function updateServiceCard(service, isRunning) {
+            const card = document.getElementById(`${service}-card`);
+            if (!card) return;
+            
+            const status = document.getElementById(`${service}-status`);
+            const startBtn = card.querySelector('.btn-service-start');
+            const stopBtn = card.querySelector('.btn-service-stop');
+            
+            if (isRunning) {
+                card.classList.add('active');
+                status.textContent = 'Running';
+                status.style.color = '#4ade80';
+                if (startBtn) startBtn.disabled = true;
+                if (stopBtn) stopBtn.disabled = false;
+            } else {
+                card.classList.remove('active');
+                status.textContent = 'Stopped';
+                status.style.color = '#ef4444';
+                if (startBtn) startBtn.disabled = false;
+                if (stopBtn) stopBtn.disabled = true;
+            }
+        }
+
+        function updateBotCard(botId, botInfo) {
+            const card = document.getElementById(`${botId}-card`);
+            if (!card) return;
+            
+            const statusElement = card.querySelector('.bot-status');
+            if (!statusElement) return;
+            
+            // Handle new nuanced status system
+            if (typeof botInfo === 'object' && botInfo.status) {
+                // Bot info includes detailed status
+                const status = botInfo.status;
+                switch(status) {
+                    case 'trading':
+                        statusElement.textContent = 'Trading';
+                        statusElement.style.color = '#4ade80'; // Green
+                        break;
+                    case 'connected':
+                        statusElement.textContent = 'Connected';
+                        statusElement.style.color = '#60a5fa'; // Blue
+                        break;
+                    case 'paused':
+                        statusElement.textContent = 'Paused';
+                        statusElement.style.color = '#fbbf24'; // Yellow
+                        break;
+                    case 'stopped':
+                        statusElement.textContent = 'Stopped';
+                        statusElement.style.color = '#ef4444'; // Red
+                        break;
+                    default:
+                        statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                        statusElement.style.color = '#9ca3af'; // Gray
+                }
+            } else if (botInfo === true) {
+                // Legacy: simple boolean (server running)
+                statusElement.textContent = 'Connected';
+                statusElement.style.color = '#60a5fa'; // Blue
+            } else {
+                // Bot not running at all
+                statusElement.textContent = 'Stopped';
+                statusElement.style.color = '#ef4444'; // Red
+            }
+        }
+
+        function renderBotCards() {
+            const botsGrid = document.getElementById('botsGrid');
+            botsGrid.innerHTML = '';
+            
+            for (let i = 1; i <= 6; i++) {
+                const botId = `BOT_${i}`;
+                const config = botConfigs[botId] || {};
+                const port = 3003 + i;
+                
+                const card = document.createElement('div');
+                card.className = 'service-card';
+                card.id = `${botId}-card`;
+                
+                card.innerHTML = `
+                    <div class="service-icon">🤖</div>
+                    <div class="service-name">${botId}</div>
+                    <div class="service-status bot-status">Stopped</div>
+                    <div class="service-port">Port ${port}</div>
+                    ${config.strategy ? `<div class="bot-strategy">${config.strategy.type || 'No Strategy'}</div>` : ''}
+                    <div class="service-controls" style="display: flex; gap: 0.5rem;">
+                        <button class="btn-service btn-bot-open" onclick="openBot('${botId}')" style="background: var(--accent-primary); color: white; flex: 1;">
+                            Open
+                        </button>
+                        <button class="btn-service btn-bot-close" onclick="closeBot('${botId}')" style="background: var(--accent-danger); color: white; flex: 1;">
+                            Close
+                        </button>
+                    </div>
+                `;
+                
+                botsGrid.appendChild(card);
+            }
+        }
+
+        function addLogEntry(log) {
+            const container = document.getElementById('logsContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${log.type}`;
+            
+            const timestamp = new Date(log.timestamp).toLocaleTimeString();
+            entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> ${log.message}`;
+            
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            // Limit logs to 100 entries
+            while (container.children.length > 100) {
+                container.removeChild(container.firstChild);
+            }
+        }
+
+        // Demo Mode Functions
+        function updateDemoModeUI() {
+            if (!systemState) return;
+            
+            const demoModeSwitch = document.getElementById('demoModeSwitch');
+            const switchText = document.getElementById('switchText');
+            const safetySwitch = document.querySelector('.safety-switch');
+            
+            demoModeSwitch.checked = systemState.demoOnlyMode;
+            
+            if (systemState.demoOnlyMode) {
+                switchText.textContent = 'Demo Only';
+                switchText.style.color = 'var(--accent-warning)';
+                safetySwitch.style.borderColor = 'var(--accent-warning)';
+            } else {
+                switchText.textContent = 'Live Trading';
+                switchText.style.color = 'var(--accent-danger)';
+                safetySwitch.style.borderColor = 'var(--accent-danger)';
+            }
+        }
+
+        async function closeBot(botId) {
+            try {
+                const response = await fetch(`/api/bot/${botId}/close`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`${botId} closed successfully`, 'success');
+                    // Update the bot card status
+                    updateBotCard(botId, false);
+                } else {
+                    showToast(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showToast(`Error closing ${botId}: ${error.message}`, 'error');
+            }
+        }
+
+        async function toggleDemoMode() {
+            try {
+                const demoModeSwitch = document.getElementById('demoModeSwitch');
+                const newMode = demoModeSwitch.checked;
+                
+                const response = await fetch('/api/demo-mode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ demoOnlyMode: newMode })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    // UI will be updated via statusUpdate WebSocket event
+                } else {
+                    showToast(`Error: ${result.error}`, 'error');
+                    // Revert switch state on error
+                    demoModeSwitch.checked = !newMode;
+                }
+            } catch (error) {
+                showToast(`Error: ${error.message}`, 'error');
+                // Revert switch state on error
+                const demoModeSwitch = document.getElementById('demoModeSwitch');
+                demoModeSwitch.checked = !demoModeSwitch.checked;
+            }
+        }
+
+        async function startAll() {
+            try {
+                const response = await fetch('/api/start', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Starting all services...', 'success');
+                } else {
+                    showToast(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showToast(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopAll() {
+            try {
+                const response = await fetch('/api/stop', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Stopping all services...', 'success');
+                } else {
+                    showToast(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showToast(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function shutdownControlPanel() {
+            if (confirm('This will stop all services and close the Control Panel.\n\nAre you sure you want to shutdown?')) {
+                try {
+                    showToast('Shutting down Control Panel...', 'info');
+                    
+                    // First stop all services
+                    await stopAll();
+                    
+                    // Wait a moment for services to stop
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Then shutdown the control panel itself
+                    const response = await fetch('/api/shutdown', { method: 'POST' });
+                    
+                    // Show final message
+                    showToast('Control Panel shutting down. This window will close.', 'success');
+                    
+                    // Close the window after a short delay
+                    setTimeout(() => {
+                        window.close();
+                    }, 3000);
+                    
+                } catch (error) {
+                    showToast(`Error during shutdown: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function startService(serviceName) {
+            try {
+                // Get configuration options for Connection Manager
+                let options = {};
+                if (serviceName === 'connectionManager') {
+                    const microOnlyCheckbox = document.getElementById('microOnlyCheckbox');
+                    options.microOnly = microOnlyCheckbox.checked;
+                }
+                
+                const response = await fetch(`/api/service/${serviceName}/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(options)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`Starting ${serviceName}...`, 'success');
+                } else {
+                    showToast(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showToast(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopService(serviceName) {
+            try {
+                const response = await fetch(`/api/service/${serviceName}/stop`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`Stopping ${serviceName}...`, 'success');
+                } else {
+                    showToast(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showToast(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function refreshStatus() {
+            try {
+                const refreshBtn = document.getElementById('refreshBtn');
+                refreshBtn.disabled = true;
+                refreshBtn.innerHTML = '<span class="btn-text">🔄 Checking...</span>';
+                
+                const response = await fetch('/api/status/check');
+                const result = await response.json();
+                
+                systemState = result;
+                updateUI();
+                showToast('Status refreshed', 'success');
+                
+            } catch (error) {
+                showToast(`Error refreshing status: ${error.message}`, 'error');
+            } finally {
+                const refreshBtn = document.getElementById('refreshBtn');
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<span class="btn-text">🔄 Refresh</span>';
+            }
+        }
+
+        function clearLogs() {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '<div class="log-entry info">Logs cleared</div>';
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function openConfig() {
+            window.open('http://localhost:3000', '_blank');
+        }
+
+        function openBotConfig(botId) {
+            // Open the bot configuration UI with the bot pre-selected
+            window.open(`http://localhost:3010/?bot=${botId}`, '_blank');
+        }
+
+        async function openBot(botId) {
+            try {
+                const botNumber = botId.split('_')[1];
+                const botPort = 3003 + parseInt(botNumber);
+                
+                // Start the bot server
+                const response = await fetch(`/api/bot/${botId}/open`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`Opening ${botId}...`, 'success');
+                    // The server will handle opening Chrome
+                } else {
+                    showToast(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showToast(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function startUptimeCounter() {
+            if (uptimeInterval) return;
+            
+            uptimeInterval = setInterval(() => {
+                if (systemState && systemState.startTime) {
+                    const uptime = Math.floor((Date.now() - new Date(systemState.startTime)) / 1000);
+                    const hours = Math.floor(uptime / 3600);
+                    const minutes = Math.floor((uptime % 3600) / 60);
+                    const seconds = uptime % 60;
+                    
+                    document.getElementById('uptime').textContent = 
+                        `Uptime: ${hours}h ${minutes}m ${seconds}s`;
+                }
+            }, 1000);
+        }
+
+        function stopUptimeCounter() {
+            if (uptimeInterval) {
+                clearInterval(uptimeInterval);
+                uptimeInterval = null;
+                document.getElementById('uptime').textContent = 'Uptime: 0s';
+            }
+        }
+
+        // Initial load
+        async function loadInitialState() {
+            try {
+                const [statusResponse, configResponse, logsResponse] = await Promise.all([
+                    fetch('/api/status'),
+                    fetch('/api/bots/config'),
+                    fetch('/api/logs')
+                ]);
+                
+                systemState = await statusResponse.json();
+                botConfigs = await configResponse.json();
+                const logs = await logsResponse.json();
+                
+                renderBotCards();
+                updateUI();
+                logs.forEach(log => addLogEntry(log));
+            } catch (error) {
+                console.error('Failed to load initial state:', error);
+            }
+        }
+
+        // Load initial state on page load
+        loadInitialState();
+    </script>
+</body>
+</html>

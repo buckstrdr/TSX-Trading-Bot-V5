@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSX Trading Bot Configuration</title>
+    <link rel="stylesheet" href="../shared/premium-dark-theme.css">
+    <link rel="stylesheet" href="../shared/components.css">
+    <style>
+        /* Configuration UI Specific Styles - Consistent with Control Panel */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-default);
+            padding: var(--spacing-xl);
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .header .version {
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .status-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .connection-icon {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-danger);
+        }
+        
+        .connection-status.connected .connection-icon {
+            background: var(--accent-success);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .quick-links {
+            margin-top: var(--spacing-md);
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .quick-link {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            color: var(--accent-primary);
+            transition: all var(--transition-fast);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .quick-link:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .flex {
+            display: flex;
+        }
+        
+        .gap-md {
+            gap: var(--spacing-md);
+        }
+        
+        .items-center {
+            align-items: center;
+        }
+        
+        .value-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 400;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ TSX Trading Bot <span class="version">V4</span> Configuration</h1>
+            <p>Configure global settings and individual trading bots</p>
+            <div class="quick-links">
+                <a href="http://localhost:8080" target="_blank" class="quick-link">🎛️ Control Panel</a>
+                <a href="http://localhost:7500/health" target="_blank" class="quick-link">🔌 Connection Manager</a>
+                <a href="http://localhost:3003" target="_blank" class="quick-link">🎯 Manual Trading</a>
+            </div>
+        </div>
+        
+        <div class="status-panel">
+            <div class="connection-status" id="connection-container">
+                <span class="connection-icon"></span>
+                <span id="connection-status">Disconnected</span>
+                <span id="last-saved" class="text-tiny">Last saved: Never</span>
+            </div>
+        </div>
+
+        <main>
+            <!-- Tab Navigation -->
+            <div class="tab-nav">
+                <button class="tab-nav-item active" onclick="showTab('global')">Global Settings</button>
+                <button class="tab-nav-item" onclick="showTab('aggregator')">Aggregator Risk</button>
+            </div>
+
+            <!-- Global Settings Content -->
+            <div id="global-tab" class="tab-content active">
+                <h2>Global Configuration</h2>
+                
+                <div class="card">
+                    <h3>System Settings</h3>
+                    <div class="form-group">
+                        <label for="environment">Environment</label>
+                        <select id="environment">
+                            <option value="DEVELOPMENT">Development</option>
+                            <option value="PRODUCTION">Production</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="timezone">Timezone</label>
+                        <input type="text" id="timezone" value="America/New_York" readonly>
+                    </div>
+                </div>
+
+                <div class="card mt-lg">
+                    <h3>Port Configuration</h3>
+                    <div class="form-group">
+                        <label for="manual-trading-port">Manual Trading Port</label>
+                        <input type="number" id="manual-trading-port" value="3003" min="3000" max="9999">
+                    </div>
+                    <div class="form-group">
+                        <label>Bot Port Range</label>
+                        <div class="port-range">
+                            <input type="number" id="bot-port-start" value="3004" min="3000" max="9999">
+                            <span>to</span>
+                            <input type="number" id="bot-port-end" value="3009" min="3000" max="9999">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-lg">
+                    <h3>Redis Configuration</h3>
+                    <div class="form-group">
+                        <label for="redis-host">Host</label>
+                        <input type="text" id="redis-host" value="localhost">
+                    </div>
+                    <div class="form-group">
+                        <label for="redis-port">Port</label>
+                        <input type="number" id="redis-port" value="6379">
+                    </div>
+                </div>
+
+                <div class="flex gap-md mt-xl">
+                    <button class="button button-primary" onclick="saveGlobalConfig()">Save Global Settings</button>
+                    <button class="button button-secondary" onclick="loadGlobalConfig()">Reload</button>
+                </div>
+            </div>
+
+            <!-- Aggregator Risk Settings Content -->
+            <div id="aggregator-tab" class="tab-content">
+                <h2>Trading Aggregator Risk Management</h2>
+                <div class="config-form">
+                    <div class="form-section">
+                        <h3>Aggregator Control</h3>
+                        <div class="form-row two-columns">
+                            <div class="form-group">
+                                <label>Aggregator Enabled</label>
+                                <select id="aggregator-enabled">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Shadow Mode</label>
+                                <select id="aggregator-shadowMode">
+                                    <option value="false">Production (Live Trading)</option>
+                                    <option value="true">Shadow Mode (Testing Only)</option>
+                                </select>
+                                <small>Shadow mode processes orders but doesn't execute them</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Global Risk Limits (Across All Trading Sources)</h3>
+                        <div class="form-row two-columns">
+                            <div class="form-group">
+                                <label>Max Daily Loss ($)</label>
+                                <input type="number" id="aggregator-maxDailyLoss" step="100" min="0">
+                                <small>Maximum loss allowed across all bots and manual trading</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Daily Profit ($)</label>
+                                <input type="number" id="aggregator-maxDailyProfit" step="100" min="0">
+                                <small>Maximum profit target across all trading sources</small>
+                            </div>
+                        </div>
+                        <div class="form-row two-columns">
+                            <div class="form-group">
+                                <label>Max Open Positions</label>
+                                <input type="number" id="aggregator-maxOpenPositions" step="1" min="1">
+                                <small>Total positions across all trading sources</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Account Drawdown ($)</label>
+                                <input type="number" id="aggregator-maxAccountDrawdown" step="100" min="0">
+                                <small>Emergency stop level for account protection</small>
+                            </div>
+                        </div>
+                        <div class="form-row two-columns">
+                            <div class="form-group">
+                                <label>Pause on Daily Loss</label>
+                                <select id="aggregator-pauseOnDailyLoss">
+                                    <option value="true">Yes - Pause Trading</option>
+                                    <option value="false">No - Continue Trading</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <!-- Empty column for layout balance -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Position Size Limits</h3>
+                        <div class="form-row three-columns">
+                            <div class="form-group">
+                                <label>Max Order Size</label>
+                                <input type="number" id="aggregator-maxOrderSize" step="1" min="1">
+                                <small>Maximum contracts per order</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Position Size</label>
+                                <input type="number" id="aggregator-maxPositionSize" step="1" min="1">
+                                <small>Maximum contracts per position (scaled)</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Position Value ($)</label>
+                                <input type="number" id="aggregator-maxPositionValue" step="1000" min="0">
+                                <small>Maximum dollar value per position</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Rate Limiting (Prevent Runaway Bots)</h3>
+                        <div class="form-row three-columns">
+                            <div class="form-group">
+                                <label>Max Orders Per Minute</label>
+                                <input type="number" id="aggregator-maxOrdersPerMinute" step="1" min="1">
+                                <small>Total orders across all sources</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Orders Per Symbol</label>
+                                <input type="number" id="aggregator-maxOrdersPerSymbol" step="1" min="1">
+                                <small>Concurrent orders per instrument</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Orders Per Source</label>
+                                <input type="number" id="aggregator-maxOrdersPerSource" step="1" min="1">
+                                <small>Max orders per bot/manual</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Order Management Settings</h3>
+                        <div class="form-row two-columns">
+                            <div class="form-group">
+                                <label>Enable Trailing Stop</label>
+                                <select id="aggregator-enableTrailingStop">
+                                    <option value="false">Disabled</option>
+                                    <option value="true">Enabled</option>
+                                </select>
+                                <small>Automatically adjust stop loss as price moves favorably</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Place Bracket Orders</label>
+                                <select id="aggregator-placeBracketOrders">
+                                    <option value="true">Yes - Auto SL/TP on Fill</option>
+                                    <option value="false">No - Manual Only</option>
+                                </select>
+                                <small>Automatically place stop loss and take profit orders when filled</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="button button-primary" onclick="saveAggregatorConfig()">Save Aggregator Settings</button>
+                        <button class="button button-secondary" onclick="resetAggregatorToDefaults()">Reset to Defaults</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <footer>
+            <p>TSX Trading Bot v4.0 - Configuration Manager</p>
+        </footer>
+    </div>
+
+    <script src="config-ui.js"></script>
+</body>
+</html>

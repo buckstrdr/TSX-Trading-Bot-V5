@@ -1,0 +1,85 @@
+# BOT_4 Configuration
+# ORB + Rubber Band Strategy - London Session Focus
+
+botId: BOT_4
+port: 3007
+enabled: false
+description: Test bot
+
+# Instrument
+instrument: CON.F.US.MYM.U25  # Micro E-mini Dow
+
+# Strategy Configuration
+strategy:
+  type: EMA_CROSS
+  parameters:
+    fastEMA: 9
+    slowEMA: 21
+    mode: STANDARD
+    maxBarsSinceEMA: 15
+    postWinCandleTimeout: 3
+    postLossCandleTimeout: 10
+    stopLossBuffer: 2  # Ticks beyond slow EMA for stop loss
+    riskRewardRatio: 3  # Take profit multiplier
+    trailingStopEnabled: false  # Enable trailing stop for this strategy
+
+# Risk Management
+risk:
+  dollarRiskPerTrade: 250  # Higher risk
+  maxDailyLoss: 1000
+  maxDailyProfit: 800
+  dailyProfitLimitEnabled: true
+  maxOpenPositions: 2  # Allow 2 positions
+  maxConsecutiveLosses: 3
+  riskRewardRatio: 1.2  # Lower RR for mean reversion
+  positionSizing:
+    method: FIXED
+    fixedSize: 2  # Trade 2 contracts
+
+# Trading Hours
+tradingHours:
+  enabled: true
+  sessions:
+    - name: Regular
+      start: "09:30"
+      end: "16:00"
+      timezone: America/New_York
+      days: [1, 2, 3, 4, 5]
+
+# Order Execution
+execution:
+  orderType: MARKET  # Use market orders for speed
+  slippage:
+    maxTicks: 4
+  retryFailedOrders: false  # Don't retry - move on
+  maxRetries: 0
+
+# Stop Loss and Profit Targets
+exits:
+  stopLoss:
+    type: ATR
+    value: 2  # 2x ATR stop
+    moveToBreakeven: false
+  profitTarget:
+    enabled: true
+    type: ATR
+    value: 1  # 1x ATR target
+    partialExits:
+      - percentage: 50
+        target: 0.5  # Quick partial at 0.5 ATR
+      - percentage: 50
+        target: 1.0
+  trailingStop:
+    enabled: false
+    trigger: 1.0  # R-multiple to activate trailing stop
+    distance: 10  # Ticks to trail behind best price
+    adjustTP: true  # Move TP with trailing stop
+
+
+# Performance Monitoring
+monitoring:
+  trackMetrics: true
+  metricsInterval: 300000
+  alertOnDrawdown: 700
+  logTrades: true
+  logLevel: INFO

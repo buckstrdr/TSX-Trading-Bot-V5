@@ -1,0 +1,88 @@
+# BOT_6 Configuration
+# ORB + Rubber Band Strategy - Conservative Swing
+
+botId: BOT_6
+port: 3009
+enabled: false
+description: Test bot
+
+# Instrument
+instrument: CON.F.US.MGC.Q25  # Micro Gold
+
+# Strategy Configuration
+strategy:
+  type: EMA_CROSS
+  parameters:
+    fastEMA: 9
+    slowEMA: 21
+    mode: STANDARD
+    maxBarsSinceEMA: 15
+    postWinCandleTimeout: 3
+    postLossCandleTimeout: 10
+    stopLossBuffer: 2  # Ticks beyond slow EMA for stop loss
+    riskRewardRatio: 3  # Take profit multiplier
+    trailingStopEnabled: false  # Enable trailing stop for this strategy
+
+# Risk Management
+risk:
+  dollarRiskPerTrade: 300  # Higher risk for momentum
+  maxDailyLoss: 1200
+  maxDailyProfit: 1000
+  dailyProfitLimitEnabled: true
+  maxOpenPositions: 3  # Allow multiple positions
+  maxConsecutiveLosses: 3
+  riskRewardRatio: 1.8
+  positionSizing:
+    method: FIXED
+    fixedSize: 1
+
+# Trading Hours
+tradingHours:
+  enabled: true
+  sessions:
+    - name: Regular
+      start: "09:30"
+      end: "16:00"
+      timezone: America/New_York
+      days: [1, 2, 3, 4, 5]
+
+# Order Execution
+execution:
+  orderType: MARKET
+  slippage:
+    maxTicks: 5
+  retryFailedOrders: true
+  maxRetries: 1
+
+# Stop Loss and Profit Targets
+exits:
+  stopLoss:
+    type: FIXED
+    value: 20
+    moveToBreakeven: true
+    breakevenTrigger: 1.5
+  profitTarget:
+    enabled: true
+    type: FIXED
+    value: 60
+    partialExits:
+      - percentage: 25
+        target: 20
+      - percentage: 25
+        target: 40
+      - percentage: 50
+        target: 60
+  trailingStop:
+    enabled: false
+    trigger: 1.0  # R-multiple to activate trailing stop
+    distance: 10  # Ticks to trail behind best price
+    adjustTP: true  # Move TP with trailing stop
+
+
+# Performance Monitoring
+monitoring:
+  trackMetrics: true
+  metricsInterval: 300000
+  alertOnDrawdown: 800
+  logTrades: true
+  logLevel: INFO

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Aggregator Monitoring Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: 20px;
+        }
+        
+        .status.connected {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .status.disconnected {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            margin: 0 0 15px 0;
+            color: #34495e;
+            font-size: 18px;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .metric-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .metric-value.success {
+            color: #27ae60;
+        }
+        
+        .metric-value.warning {
+            color: #f39c12;
+        }
+        
+        .metric-value.danger {
+            color: #e74c3c;
+        }
+        
+        .chart-container {
+            height: 200px;
+            margin-top: 15px;
+        }
+        
+        #log-container {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            height: 200px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        
+        .log-entry.order {
+            color: #3498db;
+        }
+        
+        .log-entry.risk {
+            color: #e74c3c;
+        }
+        
+        .log-entry.sltp {
+            color: #f39c12;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Trading Aggregator Monitoring Dashboard <span id="status" class="status disconnected">Disconnected</span></h1>
+    </div>
+    
+    <div class="controls">
+        <button id="connectBtn" onclick="connect()">Connect</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+    
+    <div class="dashboard">
+        <div class="card">
+            <h2>Order Metrics</h2>
+            <div class="metric">
+                <span class="metric-label">Orders Received</span>
+                <span id="ordersReceived" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Orders Processed</span>
+                <span id="ordersProcessed" class="metric-value success">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Orders Rejected</span>
+                <span id="ordersRejected" class="metric-value danger">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Order Throughput</span>
+                <span id="orderThroughput" class="metric-value">0/s</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Risk Management</h2>
+            <div class="metric">
+                <span class="metric-label">Risk Violations</span>
+                <span id="riskViolations" class="metric-value danger">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Daily Loss</span>
+                <span id="dailyLoss" class="metric-value">$0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Open Positions</span>
+                <span id="openPositions" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Account Drawdown</span>
+                <span id="accountDrawdown" class="metric-value">0%</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Queue Performance</h2>
+            <div class="metric">
+                <span class="metric-label">Queue Depth</span>
+                <span id="queueDepth" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Avg Processing Time</span>
+                <span id="avgProcessingTime" class="metric-value">0ms</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Max Queue Depth</span>
+                <span id="maxQueueDepth" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Active Orders</span>
+                <span id="activeOrders" class="metric-value">0</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>SL/TP Management</h2>
+            <div class="metric">
+                <span class="metric-label">SL/TP Calculated</span>
+                <span id="sltpCalculated" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">SL/TP Placed</span>
+                <span id="sltpPlaced" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Avg Risk/Reward</span>
+                <span id="avgRiskReward" class="metric-value">0:0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">SL/TP Filled</span>
+                <span id="sltpFilled" class="metric-value">0</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>System Health</h2>
+            <div class="metric">
+                <span class="metric-label">CPU Usage</span>
+                <span id="cpuUsage" class="metric-value">0%</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Memory Usage</span>
+                <span id="memoryUsage" class="metric-value">0 MB</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Event Loop Lag</span>
+                <span id="eventLoopLag" class="metric-value">0ms</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Uptime</span>
+                <span id="uptime" class="metric-value">0s</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Connections</h2>
+            <div class="metric">
+                <span class="metric-label">Redis</span>
+                <span id="redisStatus" class="metric-value">-</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Connection Manager</span>
+                <span id="connectionManagerStatus" class="metric-value">-</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">WebSocket Clients</span>
+                <span id="wsClients" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Mode</span>
+                <span id="mode" class="metric-value">-</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top: 20px;">
+        <h2>Live Event Log</h2>
+        <div id="log-container"></div>
+    </div>
+    
+    <script>
+        let ws = null;
+        let reconnectInterval = null;
+        
+        function connect() {
+            if (ws) return;
+            
+            ws = new WebSocket('ws://localhost:7600');
+            
+            ws.onopen = function() {
+                console.log('Connected to monitoring server');
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                
+                // Subscribe to all channels
+                ws.send(JSON.stringify({
+                    type: 'subscribe',
+                    channels: ['all']
+                }));
+                
+                // Start polling for metrics
+                fetchMetrics();
+            };
+            
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'metrics') {
+                    updateMetrics(message.data);
+                    
+                    // Log specific events
+                    if (message.channel === 'orders') {
+                        addLog(`Order: ${JSON.stringify(message.data)}`, 'order');
+                    } else if (message.channel === 'risk') {
+                        addLog(`Risk: ${JSON.stringify(message.data)}`, 'risk');
+                    } else if (message.channel === 'sltp') {
+                        addLog(`SL/TP: ${JSON.stringify(message.data)}`, 'sltp');
+                    }
+                }
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onclose = function() {
+                console.log('Disconnected from monitoring server');
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                ws = null;
+            };
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+        
+        function updateMetrics(data) {
+            if (!data) return;
+            
+            // Order metrics
+            if (data.metrics?.orders) {
+                document.getElementById('ordersReceived').textContent = data.metrics.orders.received || 0;
+                document.getElementById('ordersProcessed').textContent = data.metrics.orders.processed || 0;
+                document.getElementById('ordersRejected').textContent = data.metrics.orders.rejected || 0;
+            }
+            
+            // Performance metrics
+            if (data.metrics?.performance) {
+                document.getElementById('orderThroughput').textContent = 
+                    `${(data.metrics.performance.orderThroughput || 0).toFixed(2)}/s`;
+            }
+            
+            // Risk metrics
+            if (data.metrics?.risk) {
+                document.getElementById('riskViolations').textContent = data.metrics.risk.violations || 0;
+                document.getElementById('openPositions').textContent = data.metrics.risk.positionsOpen || 0;
+            }
+            
+            // Queue metrics
+            if (data.metrics?.queue) {
+                document.getElementById('queueDepth').textContent = data.metrics.queue.depth || 0;
+                document.getElementById('avgProcessingTime').textContent = 
+                    `${(data.metrics.queue.avgProcessingTime || 0).toFixed(0)}ms`;
+                document.getElementById('maxQueueDepth').textContent = data.metrics.queue.maxDepth || 0;
+            }
+            
+            // SL/TP metrics
+            if (data.metrics?.sltp) {
+                document.getElementById('sltpCalculated').textContent = data.metrics.sltp.calculated || 0;
+                document.getElementById('sltpPlaced').textContent = data.metrics.sltp.placed || 0;
+                const rr = data.metrics.sltp.avgRiskRewardRatio || 0;
+                document.getElementById('avgRiskReward').textContent = `1:${rr.toFixed(2)}`;
+            }
+            
+            // System metrics
+            if (data.metrics?.system) {
+                document.getElementById('cpuUsage').textContent = 
+                    `${(data.metrics.system.cpuUsage || 0).toFixed(1)}%`;
+                document.getElementById('memoryUsage').textContent = 
+                    `${(data.metrics.system.memoryUsage || 0).toFixed(0)} MB`;
+                document.getElementById('eventLoopLag').textContent = 
+                    `${data.metrics.system.eventLoopLag || 0}ms`;
+                document.getElementById('uptime').textContent = 
+                    formatUptime(data.metrics.system.uptime || 0);
+            }
+            
+            // Connection status
+            if (data.metrics?.connections) {
+                document.getElementById('redisStatus').textContent = 
+                    data.metrics.connections.redis?.status || '-';
+                document.getElementById('connectionManagerStatus').textContent = 
+                    data.metrics.connections.connectionManager?.status || '-';
+                document.getElementById('wsClients').textContent = 
+                    data.metrics.connections.websocket?.clients || 0;
+            }
+        }
+        
+        function fetchMetrics() {
+            fetch('http://localhost:7600/api/metrics')
+                .then(response => response.json())
+                .then(data => {
+                    updateMetrics(data);
+                    
+                    // Update aggregator-specific data
+                    if (data.aggregator) {
+                        document.getElementById('mode').textContent = 
+                            data.aggregator.aggregator.shadowMode ? 'Shadow' : 'Production';
+                    }
+                })
+                .catch(error => console.error('Error fetching metrics:', error));
+        }
+        
+        function formatUptime(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) return `${days}d ${hours % 24}h`;
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+            return `${seconds}s`;
+        }
+        
+        function addLog(message, type = '') {
+            const logContainer = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(entry);
+            
+            // Keep only last 50 entries
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+            
+            // Auto-scroll to bottom
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function clearLogs() {
+            document.getElementById('log-container').innerHTML = '';
+        }
+        
+        // Auto-connect on load
+        window.onload = function() {
+            connect();
+            
+            // Refresh metrics every 5 seconds
+            setInterval(fetchMetrics, 5000);
+        };
+        
+        // Disconnect on unload
+        window.onbeforeunload = function() {
+            disconnect();
+        };
+    </script>
+</body>
+</html>

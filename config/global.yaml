@@ -1,0 +1,189 @@
+system:
+  environment: PRODUCTION
+  timezone: America/New_York
+  ports:
+    manualTrading: 3003
+    tradingAggregator: 7600
+    botRange:
+      start: 3004
+      end: 3009
+    redis: 6379
+  process:
+    autoRestart: true
+    restartDelay: 5000
+    maxRestarts: 10
+    gracefulShutdownTimeout: 10000
+api:
+  baseUrl: https://api.topstepx.com
+  marketHubUrl: https://rtc.topstepx.com/hubs/market
+  userHubUrl: https://rtc.topstepx.com/hubs/user
+  connection:
+    timeout: 15000
+    retryAttempts: 3
+    retryDelay: 5000
+    keepAliveInterval: 30000
+  rateLimits:
+    maxRequestsPerMinute: 120
+    maxOrdersPerMinute: 60
+    maxMarketDataPerSecond: 10
+  mode: REAL
+redis:
+  host: localhost
+  port: 6379
+  password: ''
+  db: 0
+  keyPrefix: 'tsx_bot_v4:'
+  channels:
+    marketData: market:data
+    orders: order:management
+    positions: position:updates
+    alerts: system:alerts
+    config: config:updates
+    health: health:status
+logging:
+  level: INFO
+  outputs:
+    console: true
+    file: true
+    redis: false
+  file:
+    directory: ./logs
+    maxSize: 10mb
+    maxFiles: 10
+    compress: true
+    format: json
+  categories:
+    trading: true
+    market: true
+    system: true
+    errors: true
+marketData:
+  cache:
+    enabled: true
+    ttl: 1000
+    maxSize: 1000
+  validation:
+    checkTimestamps: true
+    maxAge: 5000
+    rejectStale: true
+  deduplication:
+    enabled: true
+    window: 100
+tradingDefaults:
+  contractSpecs:
+    MGC:
+      name: Micro Gold
+      multiplier: 10
+      tickSize: 0.1
+      currency: USD
+    MES:
+      name: Micro E-mini S&P 500
+      multiplier: 5
+      tickSize: 0.25
+      currency: USD
+    MNQ:
+      name: Micro E-mini Nasdaq
+      multiplier: 2
+      tickSize: 0.25
+      currency: USD
+    M2K:
+      name: Micro E-mini Russell
+      multiplier: 5
+      tickSize: 0.1
+      currency: USD
+    MYM:
+      name: Micro E-mini Dow
+      multiplier: 0.5
+      tickSize: 1
+      currency: USD
+    M6E:
+      name: Micro EUR/USD
+      multiplier: 12.5
+      tickSize: 0.0001
+      currency: USD
+  defaultRisk:
+    dollarRiskPerTrade: 200
+    maxDailyLoss: 800
+    maxDailyProfit: 600
+    maxOpenPositions: 1
+aggregator:
+  enabled: true
+  shadowMode: false
+  globalRisk:
+    maxDailyLoss: 500
+    maxDailyProfit: 600
+    maxOpenPositions: 5
+    maxAccountDrawdown: 1000
+    pauseOnDailyLoss: true
+  positionLimits:
+    maxOrderSize: 10
+    maxPositionSize: 20
+    maxPositionValue: 50000
+  rateLimits:
+    maxOrdersPerMinute: 30
+    maxOrdersPerSymbol: 5
+    maxOrdersPerSource: 10
+  tradingHours:
+    enabled: false
+    sessions:
+      - start: '00:00'
+        end: '17:00'
+        days:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+      - start: '18:00'
+        end: '23:59'
+        days:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+    timezone: America/Chicago
+  sltp:
+    enableTrailingStop: false
+    placeBracketOrders: true
+  queue:
+    maxQueueSize: 100
+    processingInterval: 100
+    maxConcurrentOrders: 5
+    priorityLevels:
+      stopLoss: 10
+      marketOrder: 8
+      limitOrder: 5
+      modification: 9
+monitoring:
+  healthCheck:
+    enabled: true
+    interval: 30000
+    timeout: 5000
+  alerts:
+    enabled: true
+    channels:
+      - console
+      - redis
+    thresholds:
+      maxDrawdown: 500
+      connectionLoss: 3
+      orderFailureRate: 0.1
+      systemCpu: 80
+      systemMemory: 80
+  metrics:
+    enabled: true
+    interval: 300000
+    retention: 30
+emergency:
+  killSwitch:
+    enabled: true
+    triggerDrawdown: 2000
+    closeAllPositions: true
+    disableTrading: true
+    notifyAdmin: true
+  circuitBreaker:
+    enabled: true
+    maxFailures: 10
+    resetTimeout: 300000
+    halfOpenRequests: 3

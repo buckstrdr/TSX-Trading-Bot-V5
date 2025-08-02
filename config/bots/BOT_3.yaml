@@ -1,0 +1,64 @@
+botId: BOT_3
+port: 3006
+enabled: false
+description: Test bot 3
+instrument: CON.F.US.MNQ.U25
+strategy:
+  type: EMA_CROSS
+  parameters:
+    fastEMA: 9
+    slowEMA: 21
+    minEMASpread: 0.15
+    mode: STANDARD
+    maxBarsSinceEMA: 15
+    postWinCandleTimeout: 3
+    postLossCandleTimeout: 10
+    stopLossBuffer: 2  # Ticks beyond slow EMA for stop loss
+    riskRewardRatio: 3  # Take profit multiplier
+    trailingStopEnabled: false  # Enable trailing stop for this strategy
+risk:
+  dollarRiskPerTrade: 150
+  maxConsecutiveLosses: 3
+  positionSizing:
+    method: FIXED
+    fixedSize: 1
+tradingHours:
+  enabled: true
+  sessions:
+    - name: Regular
+      start: '09:45'
+      end: '15:45'
+      timezone: America/New_York
+      days:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+execution:
+  orderType: MARKET
+  slippage:
+    maxTicks: 2
+  retryFailedOrders: true
+  maxRetries: 3
+exits:
+  stopLoss:
+    type: PERCENTAGE
+    value: 1.5
+    moveToBreakeven: false
+  profitTarget:
+    enabled: true
+    type: FIXED
+    value: 30
+    partialExits: []
+  trailingStop:
+    enabled: false
+    trigger: 1.0  # R-multiple to activate trailing stop
+    distance: 10  # Ticks to trail behind best price
+    adjustTP: true  # Move TP with trailing stop
+monitoring:
+  trackMetrics: true
+  metricsInterval: 300000
+  alertOnDrawdown: 500
+  logTrades: true
+  logLevel: INFO

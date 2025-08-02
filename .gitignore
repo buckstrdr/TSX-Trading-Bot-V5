@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory
+coverage/
+.nyc_output/
+
+# Build outputs
+dist/
+build/
+out/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Test artifacts
+test-results/
+playwright-report/
+test-results.json
+
+# Redis dump
+dump.rdb
+
+# Config overrides
+config/local/
+*.local.yaml
+*.local.json
+
+# Connection Manager runtime config
+connection-manager/runtime-config.json
+
+# Aggregator logs
+aggregator.log
+
+# Windows specific
+nul
+
+# Backup files
+*.backup
+*.bak
+backup-*/
+
+# Debug files
+debug-*.log
+crash-*.log

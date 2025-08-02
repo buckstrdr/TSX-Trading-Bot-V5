@@ -1,0 +1,45 @@
+# Instrument Configuration
+# Defines dollar per point values and other instrument-specific settings
+
+instruments:
+  # Micro E-mini S&P 500
+  CON.F.US.MES.U25:
+    name: "Micro E-mini S&P 500"
+    dollarPerPoint: 5
+    tickSize: 0.25
+    tickValue: 1.25
+    
+  # Micro E-mini Nasdaq
+  CON.F.US.MNQ.U25:
+    name: "Micro E-mini Nasdaq"
+    dollarPerPoint: 2
+    tickSize: 0.25
+    tickValue: 0.50
+    
+  # Micro E-mini Russell
+  CON.F.US.M2K.U25:
+    name: "Micro E-mini Russell"
+    dollarPerPoint: 5
+    tickSize: 0.1
+    tickValue: 0.50
+    
+  # Micro E-mini Dow
+  CON.F.US.MYM.U25:
+    name: "Micro E-mini Dow"
+    dollarPerPoint: 0.50
+    tickSize: 1
+    tickValue: 0.50
+    
+  # Micro Gold
+  CON.F.US.MGC.U25:
+    name: "Micro Gold"
+    dollarPerPoint: 10
+    tickSize: 0.1
+    tickValue: 1.00
+    
+  # Micro Euro FX
+  CON.F.US.M6E.U25:
+    name: "Micro Euro FX"
+    dollarPerPoint: 12.50
+    tickSize: 0.0001
+    tickValue: 1.25
