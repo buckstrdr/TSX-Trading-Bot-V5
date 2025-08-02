@@ -39,33 +39,12 @@ if %errorlevel% neq 0 (
     echo [1/4] Redis already running
 )
 
-REM Start Fake API Server  
-echo [2/5] Starting Fake API Server...
-start "TSX-V5-Fake-API" "%~dp0..\services\start-fake-api-v5.bat"
-
-REM Wait for Fake API Server
-set FAKE_API_READY=0
-for /l %%i in (1,1,30) do (
-    if !FAKE_API_READY! equ 0 (
-        timeout /t 1 /nobreak > nul
-        curl -s http://localhost:8888/health > nul 2>&1
-        if !errorlevel! equ 0 (
-            set FAKE_API_READY=1
-            echo       Fake API Server ready
-        ) else (
-            <nul set /p "=."
-        )
-    )
-)
-
-if !FAKE_API_READY! equ 0 (
-    echo.
-    echo       Warning: Fake API Server startup timeout
-)
+REM Fake API Server is not implemented in V5 yet
+echo [2/5] Skipping Fake API Server (not implemented)...
 
 REM Start Connection Manager
 echo [3/5] Starting Connection Manager...
-start "TSX-V5-Connection-Manager" "%~dp0..\services\run-connection-manager-v5.bat"
+start "TSX-V5-Connection-Manager" "%~dp0..\services\run-connection-manager.bat"
 
 REM Wait for Connection Manager
 set CONNECTION_READY=0
@@ -89,7 +68,7 @@ if !CONNECTION_READY! equ 0 (
 
 REM Start Trading Aggregator
 echo [4/6] Starting Trading Aggregator...
-start "TSX-V5-Trading-Aggregator" "%~dp0..\services\start-aggregator-v5.bat"
+start "TSX-V5-Trading-Aggregator" "%~dp0..\services\start-aggregator.bat"
 
 REM Wait for Aggregator
 set AGGREGATOR_READY=0
@@ -113,11 +92,11 @@ if !AGGREGATOR_READY! equ 0 (
 
 REM Start Configuration UI
 echo [5/6] Starting Configuration UI...
-start "TSX-V5-Config-UI" "%~dp0..\services\start-config-ui-v5.bat"
+start "TSX-V5-Config-UI" "%~dp0..\services\start-config-ui.bat"
 
 REM Start Manual Trading V2
 echo [6/6] Starting Manual Trading Server...
-start "TSX-V5-Manual-Trading" "%~dp0..\services\start-manual-trading-v5.bat"
+start "TSX-V5-Manual-Trading" "%~dp0..\services\start-manual-trading.bat"
 
 echo.
 echo ========================================
@@ -126,7 +105,6 @@ echo ========================================
 echo.
 echo Services:
 echo   Control Panel:      http://localhost:8080
-echo   Fake API Server:    http://localhost:8888 (Safe Testing)
 echo   Configuration UI:   http://localhost:3000
 echo   Connection Manager: http://localhost:7500
 echo   Trading Aggregator: http://localhost:7600  
