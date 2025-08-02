@@ -1,12 +1,12 @@
 @echo off
 REM ========================================
-REM TSX Trading Bot V4 - Stop Control Panel & Config Server
+REM TSX Trading Bot V5 - Stop Control Panel & Config Server
 REM ========================================
 
 cls
 echo.
 echo ========================================
-echo   STOPPING TSX TRADING BOT V4 SERVICES
+echo   STOPPING TSX TRADING BOT V5 SERVICES
 echo ========================================
 echo.
 

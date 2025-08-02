@@ -1,8 +1,8 @@
-# TSX Trading Bot V4 - Documentation Index
+# TSX Trading Bot V5 - Documentation Index
 
 ## 📋 Overview
 
-Welcome to the TSX Trading Bot V4 documentation center. This comprehensive guide collection provides everything you need to understand, setup, configure, and maintain the V4 trading system.
+Welcome to the TSX Trading Bot V5 documentation center. This comprehensive guide collection provides everything you need to understand, setup, configure, and maintain the V5 trading system.
 
 ## 🚀 Quick Start (Recommended Reading Order)
 
@@ -46,7 +46,7 @@ Welcome to the TSX Trading Bot V4 documentation center. This comprehensive guide
 |----------|---------|----------|
 | **[Quality Review Report](./QUALITY-REVIEW-REPORT.md)** | Code quality assessment and recommendations | Developers, Managers |
 | **[API Comparison Report](./API_COMPARISON_REPORT.md)** | Analysis of real vs fake API implementations | Developers, Architects |
-| **[V4 Migration Comparison](./V4_MIGRATION_COMPARISON_REPORT.md)** | Legacy vs V4 system comparison | Developers, Managers |
+| **[V5 Migration Comparison](./V5_MIGRATION_COMPARISON_REPORT.md)** | V4 vs V5 system comparison | Developers, Managers |
 
 ## 🎯 Quick Navigation by Use Case
 
@@ -66,7 +66,7 @@ Welcome to the TSX Trading Bot V4 documentation center. This comprehensive guide
 → [Fake API Quick Start](./FAKE-API-QUICK-START-GUIDE.md) → [Testing Scenarios Guide](./TESTING-SCENARIOS-GUIDE.md)
 
 ### "I'm working on quality/migration"
-→ [Quality Review Report](./QUALITY-REVIEW-REPORT.md) → [V4 Migration Comparison](./V4_MIGRATION_COMPARISON_REPORT.md)
+→ [Quality Review Report](./QUALITY-REVIEW-REPORT.md) → [V5 Migration Comparison](./V5_MIGRATION_COMPARISON_REPORT.md)
 
 ## 📁 Directory Structure
 
@@ -81,7 +81,7 @@ docs/
 ├── TROUBLESHOOTING-GUIDE.md          # Issue resolution
 ├── QUALITY-REVIEW-REPORT.md          # Quality assessment
 ├── API_COMPARISON_REPORT.md          # API analysis
-├── V4_MIGRATION_COMPARISON_REPORT.md # Migration insights
+├── V5_MIGRATION_COMPARISON_REPORT.md # Migration insights
 ├── architecture/                      # Architecture documentation
 │   ├── ARCHITECTURE.md               # System design
 │   ├── ARCHITECTURE_DIAGRAM.md       # Architecture diagrams
@@ -115,8 +115,8 @@ docs/
 ## 📞 Support & Contact Information
 
 ### Development Team
-- **Project**: TSX Trading Bot V4
-- **Repository**: `C:\Users\salte\ClaudeProjects\github-repos\TSX-Trading-Bot-V4`
+- **Project**: TSX Trading Bot V5
+- **Repository**: `C:\Users\salte\ClaudeProjects\github-repos\TSX-Trading-Bot-V5`
 - **Legacy Reference**: `C:\Users\salte\ClaudeProjects\github-repos\TSX_Trading_Bot` (read-only)
 
 ### Getting Help
@@ -135,7 +135,7 @@ When reporting issues, please include:
 
 ## 🏷️ Version Information
 
-- **TSX Trading Bot**: Version 4.0
+- **TSX Trading Bot**: Version 5.0
 - **Documentation Version**: 1.0
 - **Last Major Update**: January 2025
 - **Compatibility**: Windows, .NET 8.0, C# 12

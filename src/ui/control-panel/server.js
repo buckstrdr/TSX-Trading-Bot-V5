@@ -29,7 +29,7 @@ let systemState = {
         connectionManager: false,
         tradingAggregator: false,
         
-        // V4 services
+        // V5 services
         configurationUI: false,
         manualTrading: false,
         
@@ -249,9 +249,9 @@ async function startAll() {
     io.emit('statusUpdate', systemState);
     
     try {
-        // Execute the V4 start-all.bat
-        log('Starting all V4 services...', 'info');
-        await executeCommand('scripts\\control\\start-all-v4.bat', 'Start All V4 Services');
+        // Execute the V5 start-all.bat
+        log('Starting all V5 services...', 'info');
+        await executeCommand('scripts\\control\\start-all.bat', 'Start All V5 Services');
         
         systemState.status = 'running';
         systemState.startTime = new Date();
@@ -284,8 +284,8 @@ async function stopAll() {
     io.emit('statusUpdate', systemState);
     
     try {
-        log('Stopping all V4 services...', 'info');
-        await executeCommand('scripts\\control\\stop-all-v4.bat', 'Stop All V4 Services', 'ignore', true);
+        log('Stopping all V5 services...', 'info');
+        await executeCommand('scripts\\control\\stop-all.bat', 'Stop All V5 Services', 'ignore', true);
         
         systemState.status = 'stopped';
         systemState.startTime = null;
@@ -320,10 +320,10 @@ async function startService(serviceName, options = {}) {
         // Map service names to start commands
         switch(serviceName) {
             case 'redis':
-                command = 'scripts\\services\\start-redis-v4.bat';
+                command = 'scripts\\services\\start-redis.bat';
                 break;
             case 'fakeApiServer':
-                command = 'scripts\\services\\start-fake-api-v4.bat';
+                command = 'scripts\\services\\start-fake-api.bat';
                 break;
             case 'connectionManager':
                 // Write configuration file for Connection Manager
@@ -336,16 +336,16 @@ async function startService(serviceName, options = {}) {
                     await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2));
                     log(`Connection Manager configuration written: microOnly=${options.microOnly}`, 'info');
                 }
-                command = 'scripts\\services\\start-connection-manager-v4.bat';
+                command = 'scripts\\services\\start-connection-manager.bat';
                 break;
             case 'configurationUI':
-                command = 'scripts\\services\\start-config-ui-v4.bat';
+                command = 'scripts\\services\\start-config-ui.bat';
                 break;
             case 'manualTrading':
-                command = 'scripts\\services\\start-manual-trading-v4.bat';
+                command = 'scripts\\services\\start-manual-trading.bat';
                 break;
             case 'tradingAggregator':
-                command = 'scripts\\services\\start-aggregator-v4.bat';
+                command = 'scripts\\services\\start-aggregator.bat';
                 break;
             case 'simulation':
                 log('Simulation service not yet implemented', 'warn');
@@ -354,7 +354,7 @@ async function startService(serviceName, options = {}) {
                 // Check if it's a bot
                 if (serviceName.startsWith('BOT_')) {
                     // For now, just start the bot server
-                    command = `scripts\\bots\\start-bot-${serviceName.split('_')[1]}-v4.bat`;
+                    command = `scripts\\bots\\start-bot-${serviceName.split('_')[1]}.bat`;
                 } else {
                     throw new Error(`Unknown service: ${serviceName}`);
                 }
@@ -391,13 +391,13 @@ async function stopService(serviceName) {
         // Map service names to stop commands
         switch(serviceName) {
             case 'redis':
-                command = 'scripts\\services\\stop-redis-v4.bat';
+                command = 'scripts\\services\\stop-redis.bat';
                 break;
             case 'fakeApiServer':
-                command = 'scripts\\services\\stop-fake-api-v4.bat';
+                command = 'scripts\\services\\stop-fake-api.bat';
                 break;
             case 'connectionManager':
-                command = 'scripts\\services\\stop-connection-manager-v4.bat';
+                command = 'scripts\\services\\stop-connection-manager.bat';
                 // Clean up runtime configuration file
                 const configPath = path.join(V5_BASE, 'connection-manager', 'runtime-config.json');
                 try {
@@ -408,13 +408,13 @@ async function stopService(serviceName) {
                 }
                 break;
             case 'configurationUI':
-                command = 'scripts\\services\\stop-config-ui-v4.bat';
+                command = 'scripts\\services\\stop-config-ui.bat';
                 break;
             case 'manualTrading':
-                command = 'scripts\\services\\stop-manual-trading-v4.bat';
+                command = 'scripts\\services\\stop-manual-trading.bat';
                 break;
             case 'tradingAggregator':
-                command = 'scripts\\services\\stop-aggregator-v4.bat';
+                command = 'scripts\\services\\stop-aggregator.bat';
                 break;
             case 'simulation':
                 log('Simulation service not yet implemented', 'warn');
@@ -422,7 +422,7 @@ async function stopService(serviceName) {
             default:
                 // Check if it's a bot
                 if (serviceName.startsWith('BOT_')) {
-                    command = `scripts\\bots\\stop-bot-${serviceName.split('_')[1]}-v4.bat`;
+                    command = `scripts\\bots\\stop-bot-${serviceName.split('_')[1]}.bat`;
                 } else {
                     throw new Error(`Unknown service: ${serviceName}`);
                 }
@@ -834,8 +834,8 @@ app.use(express.json());
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve V4 UI shared assets
-app.use('/src/ui/shared', express.static(path.join(__dirname, '..', 'src', 'ui', 'shared')));
+// Serve V5 UI shared assets
+app.use('/src/ui/shared', express.static(path.join(__dirname, '..', 'shared')));
 
 // Periodic status check
 setInterval(async () => {
@@ -849,7 +849,7 @@ setInterval(async () => {
 server.listen(PORT, async () => {
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║           TSX Trading Bot V4 Control Panel                ║
+║           TSX Trading Bot V5 Control Panel                ║
 ╠═══════════════════════════════════════════════════════════╣
 ║                                                           ║
 ║   Web Interface: http://localhost:${PORT}                    ║
@@ -873,7 +873,7 @@ server.listen(PORT, async () => {
 ╚═══════════════════════════════════════════════════════════╝
     `);
     
-    log(`Control Panel V4 started on port ${PORT}`, 'success');
+    log(`Control Panel V5 started on port ${PORT}`, 'success');
     
     // Load bot configurations
     await loadBotConfigs();

@@ -1,6 +1,6 @@
 @echo off
 REM ========================================
-REM TSX Trading Bot V4 - Control Panel Launcher
+REM TSX Trading Bot V5 - Control Panel Launcher
 REM ========================================
 
 cls
@@ -12,7 +12,7 @@ echo   ^| ^|  ^|___//  \    ^| ^|^| ^| ^| (_^| ^| (_^| ^| ^| ^| ^| ^| (_^| ^| ^|
 echo   ^|_^|  ^|____/_/\_\   ^|_^|^|_^|  \__,_^\__,_^|_^|_^| ^|_^\__, ^| ^|____/ \___/ \__^|
 echo                                                ^|___/                    
 echo.
-echo                            VERSION 4.0
+echo                            VERSION 5.0
 echo                        CONTROL PANEL LAUNCHER
 echo.
 echo ========================================
@@ -36,7 +36,7 @@ if %errorlevel% neq 0 (
     echo.
 )
 
-echo Starting TSX Trading Bot V4 Control Panel...
+echo Starting TSX Trading Bot V5 Control Panel...
 echo.
 echo The Control Panel will open in your default browser at:
 echo http://localhost:8080
@@ -62,7 +62,7 @@ timeout /t 2 /nobreak >nul
 
 
 REM Start the main control panel
-start "TSX-V4-Control-Panel" /D "%~dp0" scripts\control\start-control-panel.bat
+start "TSX-V5-Control-Panel" /D "%~dp0" scripts\control\start-control-panel.bat
 
 REM Wait a moment for server to start
 timeout /t 3 /nobreak >nul

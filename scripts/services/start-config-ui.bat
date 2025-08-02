@@ -1,5 +1,5 @@
 @echo off
-REM TSX Trading Bot V4 - Start Configuration UI
+REM TSX Trading Bot V5 - Start Configuration UI
 
 echo Starting Configuration UI...
 cd /d "%~dp0..\..\src\ui\config"

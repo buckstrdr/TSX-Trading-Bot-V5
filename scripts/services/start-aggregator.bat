@@ -1,5 +1,5 @@
 @echo off
-REM TSX Trading Bot V4 - Start Trading Aggregator
+REM TSX Trading Bot V5 - Start Trading Aggregator
 
 echo Starting Trading Aggregator...
 echo.
@@ -18,4 +18,4 @@ echo Starting Trading Aggregator on port 7600...
 echo.
 
 REM Start the aggregator in production mode from root directory in a new window
-start "TSX-V4-Trading-Aggregator" cmd /k node src\core\aggregator\start-aggregator-production.js
+start "TSX-V5-Trading-Aggregator" cmd /k node src\core\aggregator\start-aggregator-production.js

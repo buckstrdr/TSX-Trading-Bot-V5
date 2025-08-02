@@ -1,8 +1,8 @@
 @echo off
-REM TSX Trading Bot V4 - Run Connection Manager
-REM This runs the Connection Manager from the V4 folder
+REM TSX Trading Bot V5 - Run Connection Manager
+REM This runs the Connection Manager from the V5 folder
 
-echo Starting TSX Trading Bot Connection Manager V4...
+echo Starting TSX Trading Bot Connection Manager V5...
 cd /d "%~dp0..\..\connection-manager"
 
 REM Check if node_modules exists
