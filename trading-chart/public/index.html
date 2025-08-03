@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSX Trading Bot V4 - Live Charts</title>
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+    
+    <!-- CSS variables and base styles -->
+    
+    <!-- TradingView Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <style>
+        /* CSS Variables and Base Theme */
+        :root {
+            /* Colors */
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #141414;
+            --bg-tertiary: #1e1e1e;
+            --bg-hover: #2a2a2a;
+            
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-tertiary: #6b7280;
+            
+            --accent-primary: #3b82f6;
+            --accent-success: #10b981;
+            --accent-danger: #ef4444;
+            --accent-warning: #f59e0b;
+            
+            --border-default: #2d3748;
+            --border-hover: #4a5568;
+            
+            /* Spacing */
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            
+            /* Border Radius */
+            --radius-sm: 0.25rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            
+            /* Transitions */
+            --transition-fast: 0.15s ease;
+        }
+        
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            margin: 0;
+        }
+        
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Chart-specific styles extending the theme */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-default);
+            padding: var(--spacing-xl);
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .header .version {
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            margin: var(--spacing-lg);
+            padding: var(--spacing-lg);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+
+        .chart-info {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-lg);
+        }
+
+        .symbol-display {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .price-display {
+            font-size: 1.25rem;
+            font-weight: 500;
+        }
+
+        .price-up {
+            color: var(--accent-success);
+        }
+
+        .price-down {
+            color: var(--accent-danger);
+        }
+
+        .price-neutral {
+            color: var(--text-secondary);
+        }
+
+        .chart-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            flex-wrap: wrap;
+        }
+
+        .timeframe-buttons {
+            display: flex;
+            gap: var(--spacing-xs);
+        }
+
+        .timeframe-btn {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .timeframe-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-hover);
+        }
+
+        .timeframe-btn.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: white;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-size: 0.875rem;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-danger);
+        }
+
+        .connection-status.connected .connection-dot {
+            background: var(--accent-success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .chart-wrapper {
+            flex: 1;
+            min-height: 500px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            position: relative;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-md);
+            z-index: 10;
+        }
+
+        .loading-overlay.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-default);
+            border-top: 4px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: var(--spacing-md);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: var(--spacing-md);
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .stat-label {
+            color: var(--text-tertiary);
+            font-size: 0.75rem;
+        }
+
+        .stat-value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .quick-links {
+            margin-top: var(--spacing-md);
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .quick-link {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            color: var(--accent-primary);
+            transition: all var(--transition-fast);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .quick-link:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+        }
+
+        .footer {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-default);
+            padding: var(--spacing-md);
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-top: auto;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .chart-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .chart-info {
+                justify-content: center;
+            }
+
+            .chart-controls {
+                justify-content: center;
+            }
+
+            .stats-bar {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: var(--spacing-md);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📈 TSX Trading Bot <span class="version">V4</span> Live Charts</h1>
+        <p>Real-time candlestick charts with market data from active trading bots</p>
+        <div class="quick-links">
+            <a href="http://localhost:8080" target="_blank" class="quick-link">🎛️ Control Panel</a>
+            <a href="http://localhost:3000" target="_blank" class="quick-link">⚙️ Configuration</a>
+            <a href="http://localhost:3003" target="_blank" class="quick-link">🎯 Manual Trading</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="chart-container">
+            <div class="chart-header">
+                <div class="chart-info">
+                    <div class="symbol-display" id="symbolDisplay">No Symbol</div>
+                    <div class="price-display price-neutral" id="priceDisplay">$0.00</div>
+                    <div class="connection-status" id="connectionStatus">
+                        <div class="connection-dot"></div>
+                        <span id="connectionText">Connecting...</span>
+                    </div>
+                </div>
+                
+                <div class="chart-controls">
+                    <div class="timeframe-buttons">
+                        <button class="timeframe-btn" data-timeframe="1m">1m</button>
+                        <button class="timeframe-btn active" data-timeframe="5m">5m</button>
+                        <button class="timeframe-btn" data-timeframe="15m">15m</button>
+                        <button class="timeframe-btn" data-timeframe="1h">1h</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-wrapper">
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Waiting for market data...</div>
+                </div>
+                <div id="chartContainer"></div>
+            </div>
+            
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-label">Volume</div>
+                    <div class="stat-value" id="volumeDisplay">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Trades</div>
+                    <div class="stat-value" id="tradesDisplay">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Last Update</div>
+                    <div class="stat-value" id="lastUpdateDisplay">Never</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Active Symbols</div>
+                    <div class="stat-value" id="activeSymbolsDisplay">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>TSX Trading Bot V4 - Live Charts | WebSocket: <span id="wsStatus">Disconnected</span></p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Chart application state
+        const state = {
+            socket: null,
+            chart: null,
+            candlestickSeries: null,
+            currentSymbol: null,
+            currentTimeframe: '5m',
+            lastPrice: null,
+            connected: false,
+            candleData: new Map(), // Store candles by timeframe
+            stats: {
+                volume: 0,
+                trades: 0,
+                lastUpdate: null,
+                activeSymbols: 0
+            }
+        };
+
+        // Initialize the application
+        function initializeApp() {
+            console.log('Initializing Trading Chart Application...');
+            
+            // Initialize WebSocket connection
+            initializeWebSocket();
+            
+            // Initialize chart
+            initializeChart();
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Update UI
+            updateConnectionStatus();
+        }
+
+        // Initialize WebSocket connection
+        function initializeWebSocket() {
+            try {
+                state.socket = io();
+                
+                state.socket.on('connect', () => {
+                    console.log('Connected to chart server');
+                    state.connected = true;
+                    updateConnectionStatus();
+                    showToast('Connected to server', 'success');
+                });
+
+                state.socket.on('disconnect', () => {
+                    console.log('Disconnected from server');
+                    state.connected = false;
+                    updateConnectionStatus();
+                    showToast('Disconnected from server', 'error');
+                });
+
+                state.socket.on('candlestick-update', (data) => {
+                    handleCandlestickUpdate(data);
+                });
+
+                state.socket.on('market-tick', (tick) => {
+                    handleMarketTick(tick);
+                });
+
+                state.socket.on('trade-execution', (execution) => {
+                    handleTradeExecution(execution);
+                });
+
+                state.socket.on('system-alert', (alert) => {
+                    console.log('System alert:', alert);
+                    showToast(alert.message || 'System alert received', 'info');
+                });
+
+            } catch (error) {
+                console.error('Failed to initialize WebSocket:', error);
+                showToast('Failed to connect to server', 'error');
+            }
+        }
+
+        // Initialize TradingView Lightweight Charts
+        function initializeChart() {
+            const container = document.getElementById('chartContainer');
+            
+            // Check if TradingView library is loaded
+            if (typeof LightweightCharts === 'undefined') {
+                console.error('TradingView LightweightCharts library not loaded');
+                showToast('Chart library failed to load', 'error');
+                return;
+            }
+            
+            state.chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: container.clientHeight || 500,
+                layout: {
+                    background: { color: '#1a1a1a' },
+                    textColor: '#d1d5db',
+                },
+                grid: {
+                    vertLines: { color: '#2d3748' },
+                    horzLines: { color: '#2d3748' },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: '#4a5568',
+                },
+                timeScale: {
+                    borderColor: '#4a5568',
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+            });
+
+            // Create candlestick series using the correct API
+            state.candlestickSeries = state.chart.addCandlestickSeries({
+                upColor: '#10b981',
+                downColor: '#ef4444',
+                borderDownColor: '#ef4444',
+                borderUpColor: '#10b981',
+                wickDownColor: '#ef4444',
+                wickUpColor: '#10b981',
+            });
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                state.chart.applyOptions({
+                    width: container.clientWidth,
+                    height: container.clientHeight || 500
+                });
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Timeframe buttons
+            document.querySelectorAll('.timeframe-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const timeframe = e.target.getAttribute('data-timeframe');
+                    switchTimeframe(timeframe);
+                });
+            });
+        }
+
+        // Handle candlestick updates from WebSocket
+        function handleCandlestickUpdate(data) {
+            console.log('Candlestick update received:', data);
+            
+            // Update symbol if not set or different
+            if (!state.currentSymbol && data.symbol) {
+                state.currentSymbol = data.symbol;
+                updateSymbolDisplay();
+                hideLoadingOverlay();
+            }
+
+            // Only process updates for current timeframe
+            if (data.timeframe === state.currentTimeframe) {
+                // Store the candle data
+                if (!state.candleData.has(data.timeframe)) {
+                    state.candleData.set(data.timeframe, []);
+                }
+                
+                const candles = state.candleData.get(data.timeframe);
+                const existingIndex = candles.findIndex(c => c.time === data.candle.time);
+                
+                if (existingIndex >= 0) {
+                    // Update existing candle
+                    candles[existingIndex] = data.candle;
+                } else {
+                    // Add new candle
+                    candles.push(data.candle);
+                    // Keep only last 1000 candles
+                    if (candles.length > 1000) {
+                        candles.shift();
+                    }
+                }
+                
+                // Update chart
+                state.candlestickSeries.setData(candles);
+                
+                // Update stats
+                state.stats.volume += data.candle.volume || 0;
+                state.stats.trades += data.trades || 0;
+                state.stats.lastUpdate = new Date();
+                updateStatsDisplay();
+            }
+        }
+
+        // Handle market tick updates
+        function handleMarketTick(tick) {
+            console.log('Market tick received:', tick);
+            
+            // Update current price display
+            if (tick.price && tick.symbol === state.currentSymbol) {
+                updatePriceDisplay(tick.price);
+            }
+
+            // Update symbol if not set
+            if (!state.currentSymbol && tick.symbol) {
+                state.currentSymbol = tick.symbol;
+                updateSymbolDisplay();
+                hideLoadingOverlay();
+            }
+        }
+
+        // Handle trade execution updates
+        function handleTradeExecution(execution) {
+            console.log('Trade execution received:', execution);
+            showToast(`Trade executed: ${execution.side} ${execution.quantity} @ $${execution.price}`, 'info');
+        }
+
+        // Switch timeframe
+        function switchTimeframe(timeframe) {
+            if (timeframe === state.currentTimeframe) return;
+            
+            // Update UI
+            document.querySelectorAll('.timeframe-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-timeframe="${timeframe}"]`).classList.add('active');
+            
+            state.currentTimeframe = timeframe;
+            
+            // Load data for new timeframe
+            const candles = state.candleData.get(timeframe) || [];
+            state.candlestickSeries.setData(candles);
+            
+            console.log(`Switched to ${timeframe} timeframe`);
+        }
+
+        // Update connection status
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('connectionStatus');
+            const textElement = document.getElementById('connectionText');
+            const wsStatusElement = document.getElementById('wsStatus');
+            
+            if (state.connected) {
+                statusElement.classList.add('connected');
+                textElement.textContent = 'Connected';
+                wsStatusElement.textContent = 'Connected';
+            } else {
+                statusElement.classList.remove('connected');
+                textElement.textContent = 'Disconnected';
+                wsStatusElement.textContent = 'Disconnected';
+            }
+        }
+
+        // Update symbol display
+        function updateSymbolDisplay() {
+            const symbolElement = document.getElementById('symbolDisplay');
+            symbolElement.textContent = state.currentSymbol || 'No Symbol';
+        }
+
+        // Update price display
+        function updatePriceDisplay(price) {
+            const priceElement = document.getElementById('priceDisplay');
+            const formattedPrice = `$${price.toFixed(2)}`;
+            
+            // Update price and color based on movement
+            if (state.lastPrice !== null) {
+                priceElement.classList.remove('price-up', 'price-down', 'price-neutral');
+                if (price > state.lastPrice) {
+                    priceElement.classList.add('price-up');
+                } else if (price < state.lastPrice) {
+                    priceElement.classList.add('price-down');
+                } else {
+                    priceElement.classList.add('price-neutral');
+                }
+            }
+            
+            priceElement.textContent = formattedPrice;
+            state.lastPrice = price;
+        }
+
+        // Update stats display
+        function updateStatsDisplay() {
+            document.getElementById('volumeDisplay').textContent = state.stats.volume.toLocaleString();
+            document.getElementById('tradesDisplay').textContent = state.stats.trades.toLocaleString();
+            document.getElementById('activeSymbolsDisplay').textContent = state.currentSymbol ? '1' : '0';
+            
+            if (state.stats.lastUpdate) {
+                document.getElementById('lastUpdateDisplay').textContent = 
+                    state.stats.lastUpdate.toLocaleTimeString();
+            }
+        }
+
+        // Hide loading overlay
+        function hideLoadingOverlay() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            // Could implement actual toast notifications here
+        }
+
+        // Initialize the app when DOM is loaded and libraries are ready
+        function checkLibrariesAndInit() {
+            if (typeof LightweightCharts !== 'undefined') {
+                initializeApp();
+            } else {
+                console.log('Waiting for TradingView library to load...');
+                setTimeout(checkLibrariesAndInit, 100);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', checkLibrariesAndInit);
+    </script>
+</body>
+</html>

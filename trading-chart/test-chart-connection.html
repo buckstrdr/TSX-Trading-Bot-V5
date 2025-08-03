@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #d1d5db;
+        }
+        .log {
+            background-color: #2d2d2d;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #2962ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #1e5ad6;
+        }
+        .connected { color: #26a69a; }
+        .disconnected { color: #ef5350; }
+    </style>
+</head>
+<body>
+    <h1>Chart WebSocket Connection Test</h1>
+    <div>
+        Status: <span id="status" class="disconnected">Disconnected</span>
+    </div>
+    <div>
+        <button onclick="connect()">Connect</button>
+        <button onclick="subscribe('CON.F.US.MNQ.U25')">Subscribe to MNQ</button>
+        <button onclick="subscribe('CON.F.US.MGC.Q25')">Subscribe to Gold</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+    <div id="logs"></div>
+
+    <script>
+        let socket = null;
+        const logsEl = document.getElementById('logs');
+        const statusEl = document.getElementById('status');
+
+        function log(message, data) {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log';
+            const timestamp = new Date().toLocaleTimeString();
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            if (data) {
+                logEntry.textContent += '\n' + JSON.stringify(data, null, 2);
+            }
+            logsEl.insertBefore(logEntry, logsEl.firstChild);
+            
+            // Keep only last 20 logs
+            while (logsEl.children.length > 20) {
+                logsEl.removeChild(logsEl.lastChild);
+            }
+        }
+
+        function updateStatus(connected) {
+            statusEl.textContent = connected ? 'Connected' : 'Disconnected';
+            statusEl.className = connected ? 'connected' : 'disconnected';
+        }
+
+        function connect() {
+            if (socket) {
+                socket.disconnect();
+            }
+
+            log('Connecting to chart server...');
+            socket = io('http://localhost:4675', {
+                transports: ['websocket', 'polling']
+            });
+
+            socket.on('connect', () => {
+                log('Connected to chart server');
+                updateStatus(true);
+            });
+
+            socket.on('connected', (data) => {
+                log('Server confirmation:', data);
+            });
+
+            socket.on('disconnect', (reason) => {
+                log('Disconnected:', reason);
+                updateStatus(false);
+            });
+
+            socket.on('error', (error) => {
+                log('Socket error:', error);
+            });
+
+            socket.on('market-tick', (data) => {
+                log(`Market tick for ${data.symbol}: $${data.price.toFixed(2)}`, data);
+            });
+
+            socket.on('candlestick-update', (data) => {
+                log(`Candlestick update for ${data.symbol} (${data.timeframe}):`, data);
+            });
+
+            socket.on('trade-execution', (data) => {
+                log(`Trade execution:`, data);
+            });
+
+            socket.on('system-alert', (data) => {
+                log('System alert:', data);
+            });
+
+            socket.on('subscribed', (data) => {
+                log('Subscribed to symbol:', data);
+            });
+        }
+
+        function subscribe(symbol) {
+            if (!socket || !socket.connected) {
+                log('Error: Not connected to server');
+                return;
+            }
+            log(`Subscribing to ${symbol}...`);
+            socket.emit('subscribe', symbol);
+        }
+
+        function clearLogs() {
+            logsEl.innerHTML = '';
+        }
+
+        // Auto-connect on load
+        window.onload = () => {
+            connect();
+        };
+    </script>
+</body>
+</html>

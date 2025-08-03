@@ -20,6 +20,7 @@ TSX Trading Bot V5 is a comprehensive automated trading system designed for the 
 4. **Control Panel** (Port 8080) - Web-based service management dashboard
 5. **Manual Trading** (Port 3003) - Web interface for manual trading
 6. **Trading Bots** (Ports 3004-3009) - Automated trading bot instances
+7. **Trading Chart** (Port 4675) - Real-time candlestick chart with market data visualization
 
 ### Directory Structure
 
@@ -49,6 +50,9 @@ TSX-Trading-Bot-V5/
 │   ├── services/         # Service management
 │   ├── bots/            # Bot management
 │   └── control/         # System control
+├── trading-chart/        # Real-time trading chart
+│   ├── src/             # Chart source code
+│   └── public/          # Chart static assets
 ├── logs/                 # Application logs
 ├── docs/                 # Documentation
 └── tests/                # Test files
@@ -87,6 +91,9 @@ cp .env.template .env
 # Start all services
 .\LAUNCH-CONTROL-PANEL.bat
 
+# Start trading chart
+.\LAUNCH-TRADING-CHART.bat
+
 # Or start individually
 npm run connection-manager
 npm run aggregator
@@ -106,6 +113,8 @@ npm run manual-trading
 - **Risk Management**: Global risk limits enforced by aggregator
 - **Real-time Monitoring**: Dashboard at port 7700
 - **Multiple Strategies**: EMA and ORB Rubber Band strategies
+- **Trading Chart**: Real-time candlestick charts with market data visualization
+- **WebSocket Integration**: Live price updates and trade executions on chart
 
 ## Development
 

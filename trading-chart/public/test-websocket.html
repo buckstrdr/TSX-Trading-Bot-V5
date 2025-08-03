@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages" style="margin-top: 20px; font-family: monospace; white-space: pre-wrap;"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        
+        function addMessage(msg) {
+            messagesDiv.textContent += new Date().toISOString() + ': ' + msg + '\n';
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        const socket = io();
+        
+        socket.on('connect', () => {
+            statusDiv.textContent = 'Connected ✅';
+            statusDiv.style.color = 'green';
+            addMessage('Connected to WebSocket server');
+        });
+
+        socket.on('disconnect', () => {
+            statusDiv.textContent = 'Disconnected ❌';
+            statusDiv.style.color = 'red';
+            addMessage('Disconnected from WebSocket server');
+        });
+
+        socket.on('market-tick', (data) => {
+            addMessage('MARKET TICK: ' + JSON.stringify(data, null, 2));
+        });
+
+        socket.on('candlestick-update', (data) => {
+            addMessage('CANDLESTICK: ' + JSON.stringify(data, null, 2));
+        });
+
+        socket.on('trade-execution', (data) => {
+            addMessage('TRADE: ' + JSON.stringify(data, null, 2));
+        });
+    </script>
+</body>
+</html>
