@@ -1829,37 +1829,106 @@ class ConnectionManager extends EventEmitter {
             
             const axios = require('axios');
             
-            // Call TopStepX Statistics API
-            const url = `https://userapi.topstepx.com/Statistics/${statisticsType}`;
-            console.log(`🔍 Requesting statistics from: ${url}`);
+            // Call TopStepX Statistics API with correct format per Swagger documentation
+            let response;
             
-            const response = await axios.post(url, {
-                tradingAccountId: accountId
-            }, {
-                headers: this.authModule.getAuthHeaders(),
-                timeout: 15000
-            });
+            if (statisticsType === 'todaystats') {
+                // todaystats uses accountId as query parameter
+                const url = `https://userapi.topstepx.com/Statistics/todaystats?accountId=${accountId}`;
+                console.log(`🔍 Requesting todaystats from: ${url}`);
+                
+                response = await axios.post(url, {}, {
+                    headers: this.authModule.getAuthHeaders(),
+                    timeout: 15000
+                });
+            } else {
+                // lifetimestats and other endpoints use tradingAccountId in POST body
+                const url = `https://userapi.topstepx.com/Statistics/${statisticsType}`;
+                console.log(`🔍 Requesting ${statisticsType} from: ${url}`);
+                
+                const requestPayload = {
+                    tradingAccountId: parseInt(accountId, 10)  // Ensure it's a number as per API spec
+                };
+                
+                console.log(`🔍 Request payload:`, JSON.stringify(requestPayload, null, 2));
+                
+                response = await axios.post(url, requestPayload, {
+                    headers: this.authModule.getAuthHeaders(),
+                    timeout: 15000
+                });
+            }
             
             console.log(`📊 TopStep Statistics API response status: ${response.status}`);
             console.log(`📊 RAW Statistics response data (FULL):`, JSON.stringify(response.data, null, 2));
             console.log(`📊 Response headers:`, JSON.stringify(response.headers, null, 2));
             
-            // Transform the statistics data
-            const statistics = response.data || {};
-            const transformedStats = {
-                totalTrades: statistics.totalTrades || statistics.numberOfTrades || 0,
-                winRate: statistics.winRate || (statistics.winningTrades / Math.max(statistics.totalTrades, 1) * 100) || 0,
-                totalPnL: statistics.totalPnL || statistics.netPnL || statistics.realizedPnL || 0,
-                profitFactor: statistics.profitFactor || (statistics.grossProfit / Math.max(Math.abs(statistics.grossLoss), 1)) || 0,
-                averageWin: statistics.averageWin || statistics.avgWinningTrade || 0,
-                averageLoss: Math.abs(statistics.averageLoss || statistics.avgLosingTrade || 0),
-                grossProfit: statistics.grossProfit || 0,
-                grossLoss: statistics.grossLoss || 0,
-                winningTrades: statistics.winningTrades || 0,
-                losingTrades: statistics.losingTrades || 0,
-                largestWin: statistics.largestWin || 0,
-                largestLoss: statistics.largestLoss || 0
-            };
+            // Transform the statistics data - TopStepX API returns array of daily stats
+            const statisticsArray = response.data || [];
+            let transformedStats;
+            
+            if (Array.isArray(statisticsArray) && statisticsArray.length > 0) {
+                // Aggregate all daily statistics
+                const aggregated = statisticsArray.reduce((acc, day) => {
+                    return {
+                        totalTrades: acc.totalTrades + (day.totalTrades || 0),
+                        totalPnL: acc.totalPnL + (day.totalPnL || 0),
+                        winningTrades: acc.winningTrades + (day.winningTrades || 0),
+                        losingTrades: acc.losingTrades + (day.losingTrades || 0),
+                        totalFees: acc.totalFees + (day.totalFees || 0),
+                        grossProfit: acc.grossProfit + Math.max(day.totalPnL || 0, 0),
+                        grossLoss: acc.grossLoss + Math.min(day.totalPnL || 0, 0)
+                    };
+                }, {
+                    totalTrades: 0,
+                    totalPnL: 0,
+                    winningTrades: 0,
+                    losingTrades: 0,
+                    totalFees: 0,
+                    grossProfit: 0,
+                    grossLoss: 0
+                });
+                
+                // Calculate derived statistics
+                const winRate = aggregated.totalTrades > 0 ? (aggregated.winningTrades / aggregated.totalTrades * 100) : 0;
+                const profitFactor = Math.abs(aggregated.grossLoss) > 0 ? (aggregated.grossProfit / Math.abs(aggregated.grossLoss)) : 0;
+                const averageWin = aggregated.winningTrades > 0 ? (aggregated.grossProfit / aggregated.winningTrades) : 0;
+                const averageLoss = aggregated.losingTrades > 0 ? Math.abs(aggregated.grossLoss / aggregated.losingTrades) : 0;
+                
+                // Find largest win/loss from daily data
+                const largestWin = Math.max(...statisticsArray.map(day => Math.max(day.totalPnL || 0, 0)));
+                const largestLoss = Math.abs(Math.min(...statisticsArray.map(day => Math.min(day.totalPnL || 0, 0))));
+                
+                transformedStats = {
+                    totalTrades: aggregated.totalTrades,
+                    winRate: Math.round(winRate * 100) / 100, // Round to 2 decimal places
+                    totalPnL: Math.round(aggregated.totalPnL * 100) / 100,
+                    profitFactor: Math.round(profitFactor * 100) / 100,
+                    averageWin: Math.round(averageWin * 100) / 100,
+                    averageLoss: Math.round(averageLoss * 100) / 100,
+                    grossProfit: Math.round(aggregated.grossProfit * 100) / 100,
+                    grossLoss: Math.round(aggregated.grossLoss * 100) / 100,
+                    winningTrades: aggregated.winningTrades,
+                    losingTrades: aggregated.losingTrades,
+                    largestWin: Math.round(largestWin * 100) / 100,
+                    largestLoss: Math.round(largestLoss * 100) / 100
+                };
+            } else {
+                // Empty array or no data - return zeros
+                transformedStats = {
+                    totalTrades: 0,
+                    winRate: 0,
+                    totalPnL: 0,
+                    profitFactor: 0,
+                    averageWin: 0,
+                    averageLoss: 0,
+                    grossProfit: 0,
+                    grossLoss: 0,
+                    winningTrades: 0,
+                    losingTrades: 0,
+                    largestWin: 0,
+                    largestLoss: 0
+                };
+            }
             
             console.log(`✅ Transformed statistics:`, transformedStats);
             

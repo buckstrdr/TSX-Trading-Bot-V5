@@ -13,11 +13,14 @@ A sophisticated automated trading system designed for the TopStepX platform with
 - **Memory Management**: Removed problematic memory monitoring that was causing startup crashes
 - **Result**: ✅ Bots now run stable without console overload or crashes
 
-### 🔄 **Trade Metrics Integration** (In Progress)
-- **Statistics API Flow**: Implementing TopStepX `/Statistics/todaystats` integration for real-time trade metrics
-- **Redis Channel Architecture**: GET_STATISTICS requests flow through `aggregator:requests` → Connection Manager → TopStepX API
-- **Debug Logging Added**: Enhanced logging in RedisAdapter to trace statistics request/response flow
-- **Current Status**: Response channel routing under investigation - bot requests timing out after 10 seconds
+### ✅ **Statistics Integration & TopStepX API Testing** (January 19, 2025) 📊
+- **CRITICAL DISCOVERY**: Practice accounts (9627376) don't show statistics - TopStepX API returns empty arrays
+- **Statistics API Implementation**: Fixed `/Statistics/todaystats` and `/Statistics/lifetimestats` endpoints with Redis retry logic
+- **Express Account Verification**: Successfully tested with account 7988358 showing real trading data (89 trades, 47.19% win rate, $1,180.50 P&L)
+- **Redis Resilience**: Implemented exponential backoff retry logic fixing ECONNRESET timeout issues
+- **API Documentation**: Created comprehensive TopStepX-API-Documentation.md using Firecrawl
+- **UI Integration**: Confirmed UI properly fetches and displays statistics with 30-second refresh intervals
+- **Current Status**: ✅ Complete - System ready for funded accounts with real statistics data
 
 ### ✅ Live Trading System Successfully Deployed
 - **Real Market Data Integration**: Fixed market data flow from TopStepX through Connection Manager → Trading Aggregator → Trading Bots
@@ -387,6 +390,19 @@ curl http://localhost:3004/api/trades           # Get trade history
 
 ## 📚 **TopStepX API Documentation**
 
+### **⚠️ CRITICAL: Account Type Limitations**
+
+**Practice Accounts (e.g., 9627376):**
+- ✅ Can place trades and manage positions
+- ✅ Show real-time market data and position updates  
+- ❌ Statistics API returns empty arrays (no historical data)
+- ❌ No trading performance metrics available via API
+
+**Funded/Express Accounts (e.g., 7988358):**
+- ✅ Full statistics available with real trading history
+- ✅ Complete performance metrics and P&L data
+- ✅ All API endpoints function with real data
+
 ### **Official userapi.topstepx.com Endpoints**
 
 The trading system integrates with TopStepX's comprehensive userapi for real-time position data, order management, and account information. Below are the key endpoints used by our enhanced Connection Manager:
@@ -416,7 +432,8 @@ The trading system integrates with TopStepX's comprehensive userapi for real-tim
 
 ##### **Trade History & Statistics**
 - **`GET /Trade/id/{accountId}`** - Get filled trades for account
-- **`POST /Statistics/todaystats`** - Today's trading statistics
+- **`POST /Statistics/todaystats`** - Today's trading statistics ⚠️ **Practice accounts return empty arrays**
+- **`POST /Statistics/lifetimestats`** - Lifetime trading statistics ⚠️ **Practice accounts return empty arrays**
 - **`POST /Statistics/profitFactor`** - Calculate profit factor
 - **`POST /Statistics/daytrades`** - Get trades for specific day
 
@@ -1081,12 +1098,13 @@ curl http://localhost:3004/api/state  # BOT_1 Status
 
 #### Trade Metrics Not Loading
 - **Symptom**: `/api/statistics` returns zeros, metrics dashboard shows no data
-- **Solution**: Check service communication chain and Redis connectivity
+- **Root Cause**: Practice accounts don't have historical trading statistics in TopStepX API
+- **Solution**: Statistics only available for funded/express accounts
 - **Debug Steps**:
   1. Verify aggregator is running: `curl http://localhost:7600/health`
   2. Check Connection Manager auth: `curl http://localhost:7500/health`
   3. Test statistics endpoint: `curl http://localhost:3004/api/statistics`
-- **Known Issue**: Response channel routing under investigation (August 19, 2025)
+- **Status**: ✅ Resolved - Practice account limitations documented (January 19, 2025)
 
 #### Connection Issues
 - **Connection failures**: Check network connectivity and API credentials

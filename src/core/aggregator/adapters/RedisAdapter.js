@@ -516,7 +516,25 @@ class RedisAdapter extends EventEmitter {
                     this.log(`🔍 [DEBUG] CLOSE_POSITION response received: success=${response.success}, error=${response.error}`);
                 }
                 
-                // Check if we have a pending request for this response
+                // First check for direct sendConnectionManagerRequest requests
+                const directRequest = this.pendingRequests.get(response.requestId);
+                if (directRequest) {
+                    console.log(`✅ [connection-manager:response] Found direct pending request for ${response.requestId}`);
+                    
+                    // Clear timeout and remove from pending
+                    clearTimeout(directRequest.timeout);
+                    this.pendingRequests.delete(response.requestId);
+                    
+                    // Resolve with the response
+                    if (response.success === false) {
+                        directRequest.reject(new Error(response.error || 'Request failed'));
+                    } else {
+                        directRequest.resolve(response);
+                    }
+                    return; // Done with this response
+                }
+                
+                // Check if we have a pending forwarding request for this response
                 const pendingRequest = this.pendingForwardRequests.get(response.requestId);
                 if (pendingRequest && pendingRequest.responseChannel) {
                     // Special handling for P&L extraction from position responses
@@ -543,12 +561,16 @@ class RedisAdapter extends EventEmitter {
                     // Clean up
                     this.pendingForwardRequests.delete(response.requestId);
                 } else {
-                    this.log(`⚠️ No pending request found for ${response.requestId}, pendingRequests size: ${this.pendingForwardRequests.size}`);
+                    this.log(`⚠️ No pending request found for ${response.requestId}, pendingRequests: ${this.pendingRequests.size}, pendingForwardRequests: ${this.pendingForwardRequests.size}`);
                     
                     // Debug: Log all pending request IDs
                     if (this.pendingForwardRequests.size > 0) {
                         const pendingIds = Array.from(this.pendingForwardRequests.keys());
-                        this.log(`🔍 [DEBUG] Current pending request IDs: ${pendingIds.join(', ')}`);
+                        this.log(`🔍 [DEBUG] Current forward request IDs: ${pendingIds.join(', ')}`);
+                    }
+                    if (this.pendingRequests.size > 0) {
+                        const directIds = Array.from(this.pendingRequests.keys());
+                        this.log(`🔍 [DEBUG] Current direct request IDs: ${directIds.join(', ')}`);
                     }
                 }
             } catch (error) {
@@ -714,20 +736,62 @@ class RedisAdapter extends EventEmitter {
     }
     
     /**
-     * Send request to connection-manager and wait for response
+     * Send request to connection-manager and wait for response with automatic retry on Redis connection issues
      */
-    async sendConnectionManagerRequest(requestType, data, timeout = 30000) {
+    async sendConnectionManagerRequest(requestType, data, timeout = 30000, maxRetries = 3) {
+        let lastError;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`📤 [sendConnectionManagerRequest] Attempt ${attempt}/${maxRetries}: ${requestType}`);
+                
+                const result = await this.sendConnectionManagerRequestOnce(requestType, data, timeout, attempt);
+                
+                if (attempt > 1) {
+                    console.log(`✅ [sendConnectionManagerRequest] ${requestType} succeeded on attempt ${attempt}`);
+                }
+                
+                return result;
+                
+            } catch (error) {
+                lastError = error;
+                const isRetryableError = error.message.includes('timed out') || 
+                                       error.message.includes('ECONNRESET') ||
+                                       error.message.includes('connection lost');
+                
+                if (isRetryableError && attempt < maxRetries) {
+                    const retryDelay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
+                    console.log(`🔄 [sendConnectionManagerRequest] ${requestType} attempt ${attempt} failed (${error.message}), retrying in ${retryDelay}ms...`);
+                    
+                    // Wait before retry
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                } else {
+                    console.log(`❌ [sendConnectionManagerRequest] ${requestType} failed after ${attempt} attempts: ${error.message}`);
+                    break;
+                }
+            }
+        }
+        
+        throw lastError;
+    }
+    
+    /**
+     * Internal method: Send single request to connection-manager (no retry logic)
+     */
+    async sendConnectionManagerRequestOnce(requestType, data, timeout, attemptNumber = 1) {
         return new Promise((resolve, reject) => {
             const requestId = this.generateRequestId();
-            const responseChannel = `${requestType.toLowerCase()}-response`;
+            
+            console.log(`📤 [sendConnectionManagerRequestOnce] Creating request: ${requestType}, ID: ${requestId} (attempt ${attemptNumber})`);
             
             // Set up timeout
             const timeoutHandle = setTimeout(() => {
+                console.log(`⏰ [sendConnectionManagerRequestOnce] Request ${requestId} timed out after ${timeout}ms`);
                 this.pendingRequests.delete(requestId);
                 reject(new Error(`Request ${requestType} timed out after ${timeout}ms`));
             }, timeout);
             
-            // Store pending request
+            // Store pending request - the response will come through the existing connection-manager:response handler
             this.pendingRequests.set(requestId, {
                 resolve,
                 reject,
@@ -735,10 +799,9 @@ class RedisAdapter extends EventEmitter {
                 type: requestType
             });
             
-            // Set up one-time response handler
-            this.setupResponseHandler(responseChannel, requestId);
+            console.log(`📝 [sendConnectionManagerRequestOnce] Stored pending request ${requestId}, total pending: ${this.pendingRequests.size}`);
             
-            // Send request
+            // Send request directly to connection manager
             this.publish(this.config.channels.connectionManagerRequests, {
                 type: requestType,
                 requestId,
@@ -802,39 +865,6 @@ class RedisAdapter extends EventEmitter {
         }
     }
     
-    /**
-     * Setup response handler for connection-manager requests
-     */
-    setupResponseHandler(responseChannel, requestId) {
-        // Create a one-time handler for this response
-        const handler = (message) => {
-            try {
-                const response = JSON.parse(message);
-                if (response.requestId === requestId) {
-                    const request = this.pendingRequests.get(requestId);
-                    if (request) {
-                        clearTimeout(request.timeout);
-                        this.pendingRequests.delete(requestId);
-                        
-                        if (response.success === false) {
-                            request.reject(new Error(response.error || 'Request failed'));
-                        } else {
-                            request.resolve(response);
-                        }
-                    }
-                }
-            } catch (error) {
-                this.handleParseError(responseChannel, message, error);
-            }
-        };
-        
-        // Subscribe to response channel if not already subscribed
-        if (!this.state.subscribedChannels.has(responseChannel)) {
-            this.subscribe(responseChannel, handler).catch(error => {
-                this.log(`❌ Failed to subscribe to response channel ${responseChannel}: ${error.message}`, 'ERROR');
-            });
-        }
-    }
     
     /**
      * Generate unique request ID

@@ -314,6 +314,115 @@ async function startProductionAggregator() {
         res.json(fullMetrics);
     });
     
+    // Statistics endpoint to match TopStepX API format with Redis resilience
+    app.get('/Statistics/todaystats', async (req, res) => {
+        try {
+            console.log('📊 [STATISTICS] Received todaystats request');
+            
+            // Use shorter timeout but with automatic retry logic for Redis stability
+            const response = await redisAdapter.sendConnectionManagerRequest('GET_STATISTICS', {
+                endpoint: '/Statistics/todaystats',
+                accountId: '9627376' // Default account for now
+            }, 8000, 3); // 8 second timeout per attempt, max 3 retries
+            
+            console.log('📊 [STATISTICS] Response received from Connection Manager');
+            
+            // Send the statistics data
+            if (response && response.statistics) {
+                res.json(response.statistics);
+            } else if (response && response.data) {
+                res.json(response.data);
+            } else {
+                // Fallback empty statistics
+                res.json({
+                    dailyPnL: 0,
+                    totalTrades: 0,
+                    winRate: 0,
+                    profitFactor: 0,
+                    averageWin: 0,
+                    averageLoss: 0,
+                    grossProfit: 0,
+                    grossLoss: 0
+                });
+            }
+            
+        } catch (error) {
+            console.log(`📊 [STATISTICS] Error after retries: ${error.message}`);
+            
+            // If it's a timeout, provide more specific error
+            if (error.message.includes('timed out')) {
+                res.status(504).json({ 
+                    error: 'Statistics request timeout',
+                    message: 'Connection Manager did not respond despite retries (Redis connection issues)',
+                    timestamp: new Date().toISOString()
+                });
+            } else {
+                res.status(500).json({ 
+                    error: 'Statistics unavailable',
+                    message: error.message,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+    });
+    
+    // Lifetime Statistics endpoint to match TopStepX API format with Redis resilience
+    app.get('/Statistics/lifetimestats', async (req, res) => {
+        try {
+            console.log('📊 [LIFETIME_STATISTICS] Received lifetimestats request');
+            
+            // Use shorter timeout but with automatic retry logic for Redis stability
+            const response = await redisAdapter.sendConnectionManagerRequest('GET_STATISTICS', {
+                endpoint: '/Statistics/lifetimestats',
+                accountId: '9627376', // Default account for now
+                statisticsType: 'lifetimestats'
+            }, 8000, 3); // 8 second timeout per attempt, max 3 retries
+            
+            console.log('📊 [LIFETIME_STATISTICS] Response received from Connection Manager');
+            
+            // Send the statistics data
+            if (response && response.statistics) {
+                res.json(response.statistics);
+            } else if (response && response.data) {
+                res.json(response.data);
+            } else {
+                // Fallback empty statistics
+                res.json({
+                    totalTrades: 0,
+                    winRate: 0,
+                    totalPnL: 0,
+                    profitFactor: 0,
+                    averageWin: 0,
+                    averageLoss: 0,
+                    grossProfit: 0,
+                    grossLoss: 0,
+                    winningTrades: 0,
+                    losingTrades: 0,
+                    largestWin: 0,
+                    largestLoss: 0
+                });
+            }
+            
+        } catch (error) {
+            console.log(`📊 [LIFETIME_STATISTICS] Error after retries: ${error.message}`);
+            
+            // If it's a timeout, provide more specific error
+            if (error.message.includes('timed out')) {
+                res.status(504).json({ 
+                    error: 'Lifetime statistics request timeout',
+                    message: 'Connection Manager did not respond despite retries (Redis connection issues)',
+                    timestamp: new Date().toISOString()
+                });
+            } else {
+                res.status(500).json({ 
+                    error: 'Lifetime statistics unavailable',
+                    message: error.message,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+    });
+    
     // Order submission endpoint (for testing/admin)
     app.post('/admin/order', express.json(), (req, res) => {
         const order = req.body;
