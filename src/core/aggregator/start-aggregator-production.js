@@ -203,6 +203,9 @@ async function startProductionAggregator() {
     // Subscribe to aggregator requests (from manual trading) and forward to connection manager
     await redisAdapter.subscribeToAggregatorRequests();
     
+    // Subscribe to P&L requests and forward to connection manager
+    await redisAdapter.subscribeToPnLRequests();
+    
     // Subscribe to market data and republish to aggregator:market-data channel
     await redisAdapter.subscribeToMarketData((marketData) => {
         aggregator.handleMarketDataUpdate(marketData);

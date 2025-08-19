@@ -754,7 +754,7 @@ class TradingAggregator extends EventEmitter {
             if (existingPosition.quantity > 0) {
                 // Closing long position
                 const closedQty = Math.min(existingPosition.quantity, fill.quantity);
-                const pnl = (fill.fillPrice - existingPosition.avgPrice) * closedQty;
+                const pnl = ((fill.fillPrice - existingPosition.avgPrice) * closedQty) - 1.24; // Include $1.24 round-trip commission
                 existingPosition.realized += pnl;
                 existingPosition.quantity -= closedQty;
             }
@@ -1074,6 +1074,11 @@ class TradingAggregator extends EventEmitter {
             // Subscribe to aggregator requests (from manual trading) and forward to connection manager
             await this.redisAdapter.subscribeToAggregatorRequests();
             
+            // Subscribe to P&L requests from P&L module and forward to connection manager
+            this.log('info', 'About to subscribe to P&L requests...');
+            await this.redisAdapter.subscribeToPnLRequests();
+            this.log('info', 'P&L subscription completed successfully');
+            
             this.log('info', 'Redis adapter initialized with subscriptions');
             
         } catch (error) {
@@ -1294,7 +1299,7 @@ class TradingAggregator extends EventEmitter {
     }
     
     /**
-     * Handle market data updates
+     * Handle market data updates with proper channel separation
      */
     async handleMarketDataUpdate(marketData) {
         // Update position P&L calculations if needed
@@ -1309,40 +1314,81 @@ class TradingAggregator extends EventEmitter {
             });
         }
         
-        // Republish market data to aggregator's channel for downstream consumers
+        // CRITICAL FIX: Separate position updates from market data
         if (this.redisAdapter) {
             try {
-                // Extract the actual market data from the wrapper
-                let dataToPublish;
+                // Check if this is a position update that should go to position channel instead
+                const isPositionUpdate = marketData.type === 'POSITION_UPDATE' || 
+                                       (marketData.payload && marketData.payload.type === 'POSITION_UPDATE');
                 
-                // If it's wrapped in { type: 'MARKET_DATA', payload: {...} }
-                if (marketData.type === 'MARKET_DATA' && marketData.payload) {
-                    dataToPublish = {
-                        ...marketData.payload,
-                        processedBy: 'aggregator',
-                        timestamp: Date.now()
-                    };
-                } else {
-                    // Otherwise publish as-is
-                    dataToPublish = {
+                if (isPositionUpdate) {
+                    // Route position updates to dedicated position channel
+                    this.log('info', 'Routing position update to dedicated position channel', {
+                        type: marketData.type,
+                        payloadType: marketData.payload?.type
+                    });
+                    
+                    // Publish to position-specific channel
+                    const positionData = {
                         ...marketData,
                         processedBy: 'aggregator',
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
+                        channel: 'position-updates'
                     };
+                    
+                    await this.redisAdapter.publish('aggregator:position-updates', positionData);
+                    this.emit('positionUpdateRouted', positionData);
+                    
+                } else {
+                    // Only republish actual market data (QUOTE, TRADE, DEPTH) to market data channel
+                    const isMarketData = marketData.type === 'MARKET_DATA' ||
+                                       (marketData.payload && ['QUOTE', 'TRADE', 'DEPTH'].includes(marketData.payload.type));
+                    
+                    if (isMarketData) {
+                        // Extract the actual market data from the wrapper
+                        let dataToPublish;
+                        
+                        // If it's wrapped in { type: 'MARKET_DATA', payload: {...} }
+                        if (marketData.type === 'MARKET_DATA' && marketData.payload) {
+                            dataToPublish = {
+                                ...marketData.payload,
+                                processedBy: 'aggregator',
+                                timestamp: Date.now(),
+                                channel: 'market-data'
+                            };
+                        } else {
+                            // Otherwise publish as-is
+                            dataToPublish = {
+                                ...marketData,
+                                processedBy: 'aggregator',
+                                timestamp: Date.now(),
+                                channel: 'market-data'
+                            };
+                        }
+                        
+                        await this.redisAdapter.publish(this.redisAdapter.config.channels.aggregatorMarketData, dataToPublish);
+                        this.emit('marketDataRepublished', dataToPublish);
+                        
+                        // Only log republishing in debug mode
+                        if (this.config.logLevel === 'debug' && this.config.logMarketData !== false) {
+                            this.log('debug', 'Republished market data', {
+                                channel: this.redisAdapter.config.channels.aggregatorMarketData,
+                                type: dataToPublish.type,
+                                instrument: dataToPublish.instrument
+                            });
+                        }
+                    } else {
+                        // Unknown data type - log for debugging
+                        this.log('warn', 'Unknown data type received in market data update', {
+                            type: marketData.type,
+                            payloadType: marketData.payload?.type,
+                            keys: Object.keys(marketData)
+                        });
+                    }
                 }
                 
-                await this.redisAdapter.publish(this.redisAdapter.config.channels.aggregatorMarketData, dataToPublish);
-                
-                // Only log republishing in debug mode
-                if (this.config.logLevel === 'debug' && this.config.logMarketData !== false) {
-                    this.log('debug', 'Republished market data', {
-                        channel: this.redisAdapter.config.channels.aggregatorMarketData,
-                        type: dataToPublish.type,
-                        instrument: dataToPublish.instrument
-                    });
-                }
             } catch (error) {
-                this.log('error', 'Failed to republish market data', { error: error.message });
+                this.log('error', 'Failed to process market data update', { error: error.message });
             }
         }
     }

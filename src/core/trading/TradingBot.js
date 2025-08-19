@@ -15,6 +15,7 @@ const EventEmitter = require('events');
 const RiskManager = require('../aggregator/core/RiskManager');
 const FileLogger = require('../../../shared/utils/FileLogger');
 const AggregatorClient = require('./AggregatorClient');
+const PnLModule = require('../pnl/PnLModule');
 
 class TradingBot extends EventEmitter {
     constructor(botIdOrConfig = {}) {
@@ -230,7 +231,9 @@ class TradingBot extends EventEmitter {
             'EMA_RETRACE': 'EMA_9_RETRACEMENT_SCALPING',
             'EMA_9_RETRACEMENT_SCALPING': 'EMA_9_RETRACEMENT_SCALPING',
             'ORB_RUBBER_BAND': 'ORB_RUBBER_BAND',
-            'EMA_RETRACEMENT': 'EMA_9_RETRACEMENT_SCALPING'
+            'EMA_RETRACEMENT': 'EMA_9_RETRACEMENT_SCALPING',
+            'TEST_TIME': 'TEST_TIME_STRATEGY',
+            'TEST_TIME_STRATEGY': 'TEST_TIME_STRATEGY'
         };
         
         return strategyMap[yamlStrategyType] || 'EMA_9_RETRACEMENT_SCALPING';
@@ -290,6 +293,27 @@ class TradingBot extends EventEmitter {
                 activeSession: config.strategy?.parameters?.activeSession || 'BOTH',
                 // Calculate dollarPerPoint based on instrument
                 dollarPerPoint: this.getInstrumentMultiplier(config.instrument)
+            };
+        } else if (strategyType === 'TEST_TIME_STRATEGY') {
+            return {
+                // Test strategy timing parameters
+                intervalMinutes: config.strategy?.parameters?.intervalMinutes || 5,
+                tradeDurationMinutes: config.strategy?.parameters?.tradeDurationMinutes || 3,
+                candleLookbackMinutes: config.strategy?.parameters?.candleLookbackMinutes || 1,
+                
+                // Risk configuration
+                dollarRiskPerTrade: config.risk?.dollarRiskPerTrade || 50,
+                maxRiskPoints: config.strategy?.parameters?.maxRiskPoints || 3.0,
+                riskRewardRatio: 1, // Fixed 1:1 for testing
+                
+                // Position sizing
+                positionSize: config.strategy?.parameters?.positionSize || 1,
+                
+                // Calculate dollarPerPoint based on instrument
+                dollarPerPoint: this.getInstrumentMultiplier(config.instrument),
+                
+                // Logging
+                enableLogging: true
             };
         }
         
@@ -363,6 +387,9 @@ class TradingBot extends EventEmitter {
             } else if (strategyType === 'ORB_RUBBER_BAND') {
                 const ORBStrategy = require('../../strategies/orb-rubber-band/ORBRubberBandStrategy');
                 StrategyClass = ORBStrategy;
+            } else if (strategyType === 'TEST_TIME_STRATEGY') {
+                const TestTimeStrategy = require('../../strategies/test/testTimeStrategy');
+                StrategyClass = TestTimeStrategy;
             } else {
                 throw new Error(`Unknown strategy type: ${strategyType}`);
             }
@@ -455,7 +482,7 @@ class TradingBot extends EventEmitter {
                 // Get aggregator config from runtime config
                 const aggregatorConfig = {
                     botId: this.botId,
-                    accountId: this.runtimeConfig.accountId || 'default',
+                    accountId: this.config.accountId || this.runtimeConfig.accountId || 'default',
                     redisConfig: this.config.aggregator?.redisConfig || { host: 'localhost', port: 6379 },
                     connectionManagerUrl: this.config.aggregator?.connectionManagerUrl || 'http://localhost:7500',
                     aggregatorUrl: this.config.aggregator?.aggregatorUrl || 'http://localhost:7700',
@@ -489,8 +516,18 @@ class TradingBot extends EventEmitter {
         if (this.runtimeConfig.marketDataSource === 'SIMULATED') {
             this.initializeSimulatedMarketData();
         } else {
-            // TODO: Initialize real market data connection
-            this.log('info', 'Real market data connection would be initialized here');
+            // Initialize live market data connection through aggregator
+            this.log('info', 'Initializing live market data connection', {
+                instrument: this.runtimeConfig.instrument,
+                aggregatorEnabled: this.runtimeConfig.aggregatorEnabled
+            });
+            
+            if (this.aggregatorClient) {
+                // Subscribe to live market data through aggregator
+                this.subscribeToLiveMarketData();
+            } else {
+                this.log('warn', 'No aggregator client available for live market data');
+            }
         }
     }
     
@@ -557,6 +594,97 @@ class TradingBot extends EventEmitter {
             startPrice: currentPrice,
             tickInterval: this.runtimeConfig.tickIntervalMs
         });
+    }
+    
+    /**
+     * Subscribe to live market data through aggregator
+     */
+    subscribeToLiveMarketData() {
+        this.log('info', 'Live trading mode - subscribing to market data feed', {
+            instrument: this.runtimeConfig.instrument,
+            note: 'Market data will be received from Connection Manager via aggregator'
+        });
+        
+        // Subscribe to market data events from aggregator client
+        if (this.aggregatorClient) {
+            this.aggregatorClient.on('marketData', (marketData) => {
+                this.handleLiveMarketData(marketData);
+            });
+            this.log('info', 'Subscribed to live market data feed via aggregator');
+        } else {
+            this.log('warn', 'No aggregator client available for market data subscription');
+        }
+    }
+    
+    /**
+     * Handle incoming live market data
+     */
+    handleLiveMarketData(marketData) {
+        try {
+            // Handle the flat market data structure from AggregatorClient
+            if (marketData && marketData.type === 'MARKET_DATA') {
+                // Only process data for our instrument (MGC matches CON.F.US.MGC.Z25)
+                if (marketData.instrument && marketData.instrument.includes('MGC')) {
+                    let price = null;
+                    let volume = 1000; // default volume
+                    let timestamp = marketData.timestamp ? new Date(marketData.timestamp) : new Date();
+                    
+                    // Extract price from the flat structure
+                    if (marketData.last && !isNaN(marketData.last)) {
+                        // Use the 'last' price (calculated from bid/ask or trade price)
+                        price = marketData.last;
+                    } else if (marketData.bid && marketData.ask) {
+                        // Calculate mid price from bid/ask
+                        price = (marketData.bid + marketData.ask) / 2;
+                    } else if (marketData.bid && !isNaN(marketData.bid)) {
+                        price = marketData.bid;
+                    } else if (marketData.ask && !isNaN(marketData.ask)) {
+                        price = marketData.ask;
+                    }
+                    
+                    // Extract volume if available (from trade data)
+                    if (marketData.size && !isNaN(marketData.size)) {
+                        volume = marketData.size;
+                    }
+                    
+                    // Process the live market data through the strategy ONLY if bot is running
+                    if (price && !isNaN(price) && this.state.status === 'RUNNING') {
+                        this.processMarketData(price, volume, timestamp);
+                    } else if (price && !isNaN(price)) {
+                        // Just update last price for monitoring, but don't process strategy signals
+                        this.state.lastPrice = price;
+                        this.state.lastVolume = volume;
+                        this.state.lastTimestamp = timestamp;
+                        this.state.marketDataCount++;
+                        
+                        // Log market data received for debugging
+                        this.log('debug', 'Market data received', {
+                            instrument: marketData.instrument,
+                            price: price,
+                            bid: marketData.bid,
+                            ask: marketData.ask,
+                            volume: volume,
+                            status: this.state.status
+                        });
+                    }
+                }
+            } else {
+                // Log unexpected market data structure for debugging
+                // Only log unexpected data occasionally
+                if (Math.random() < 0.01) {
+                    this.log('warn', 'Unexpected market data structure sample', {
+                        type: marketData ? marketData.type : 'undefined'
+                    });
+                }
+            }
+        } catch (error) {
+            // Only log errors occasionally to prevent spam
+            if (Math.random() < 0.1) {
+                this.log('error', 'Market data processing error sample', {
+                    error: error.message
+                });
+            }
+        }
     }
     
     /**
@@ -660,10 +788,29 @@ class TradingBot extends EventEmitter {
                 takeProfit: signal.takeProfit,
                 positionSize: signal.positionSize,
                 dollarRisk: signal.dollarRisk,
-                confidence: signal.confidence
+                confidence: signal.confidence,
+                DEBUG_direction: signal.direction,
+                DEBUG_isClosePosition: signal.direction === 'CLOSE_POSITION'
             });
             
-            // Convert signal to order format for risk validation
+            // Handle CLOSE_POSITION signals differently (no risk validation needed)
+            if (signal.direction === 'CLOSE_POSITION') {
+                this.log('info', 'Processing CLOSE_POSITION signal', {
+                    instrument: signal.instrument,
+                    closeType: signal.closeType || 'full',
+                    reason: signal.reason
+                });
+                
+                // Send directly to aggregator or simulate execution
+                if (this.runtimeConfig.aggregatorEnabled && this.aggregatorClient) {
+                    await this.sendSignalToAggregator(signal, null);
+                } else {
+                    await this.simulateClosePosition(signal);
+                }
+                return;
+            }
+            
+            // Convert signal to order format for risk validation (regular trades only)
             const order = this.convertSignalToOrder(signal);
             
             // Risk validation using existing RiskManager
@@ -756,6 +903,33 @@ class TradingBot extends EventEmitter {
     }
     
     /**
+     * Simulate position closure for testing
+     */
+     async simulateClosePosition(signal) {
+        console.log('[SIMULATE CLOSE POSITION] Called with signal:', signal);
+        console.log('[SIMULATE CLOSE POSITION] Current bot position:', this.state.currentPosition);
+        console.log('[SIMULATE CLOSE POSITION] Strategy position:', this.strategy?.state?.currentPosition);
+        
+        if (this.state.currentPosition && this.state.currentPosition.status === 'OPEN') {
+            const currentPrice = this.state.lastPrice;
+            this.closePosition(this.state.currentPosition, currentPrice, 'STRATEGY_CLOSE');
+            
+            this.log('info', 'Simulated position closed by strategy', {
+                positionId: this.state.currentPosition.id,
+                closePrice: currentPrice,
+                reason: signal.reason
+            });
+        } else {
+            this.log('warn', 'No open position to close', {
+                signal: signal.direction,
+                reason: signal.reason,
+                botCurrentPosition: this.state.currentPosition,
+                strategyCurrentPosition: this.strategy?.state?.currentPosition
+            });
+        }
+    }
+
+    /**
      * Simulate signal execution for testing
      */
     async simulateSignalExecution(signal) {
@@ -804,12 +978,12 @@ class TradingBot extends EventEmitter {
             const currentPrice = this.state.lastPrice;
             if (!currentPrice) return;
             
-            // Calculate unrealized P&L
+            // Calculate unrealized P&L (includes $1.24 round-trip commission)
             let unrealizedPnL = 0;
             if (position.direction === 'LONG') {
-                unrealizedPnL = (currentPrice - position.entryPrice) * position.positionSize * 10; // Assuming $10 per point
+                unrealizedPnL = ((currentPrice - position.entryPrice) * position.positionSize * 10) - 1.24; // $10 per point minus commission
             } else {
-                unrealizedPnL = (position.entryPrice - currentPrice) * position.positionSize * 10;
+                unrealizedPnL = ((position.entryPrice - currentPrice) * position.positionSize * 10) - 1.24; // $10 per point minus commission
             }
             
             position.unrealizedPnL = unrealizedPnL;
@@ -853,12 +1027,12 @@ class TradingBot extends EventEmitter {
      * Close position
      */
     closePosition(position, closePrice, reason) {
-        // Calculate realized P&L
+        // Calculate realized P&L (includes $1.24 round-trip commission)
         let realizedPnL = 0;
         if (position.direction === 'LONG') {
-            realizedPnL = (closePrice - position.entryPrice) * position.positionSize * 10;
+            realizedPnL = ((closePrice - position.entryPrice) * position.positionSize * 10) - 1.24; // $10 per point minus commission
         } else {
-            realizedPnL = (position.entryPrice - closePrice) * position.positionSize * 10;
+            realizedPnL = ((position.entryPrice - closePrice) * position.positionSize * 10) - 1.24; // $10 per point minus commission
         }
         
         position.closePrice = closePrice;

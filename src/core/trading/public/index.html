@@ -45,7 +45,8 @@
             font-weight: 600;
         }
 
-        .status-badge.running {
+        .status-badge.running,
+        .status-badge.trading {
             background: rgba(16, 185, 129, 0.2);
             color: var(--accent-success);
             border: 1px solid var(--accent-success);
@@ -295,20 +296,20 @@
 
                     <div class="market-data">
                         <div class="market-item">
-                            <div class="market-label">Last</div>
-                            <div class="market-value" id="lastPrice">--</div>
+                            <div class="market-label">Entry Price</div>
+                            <div class="market-value" id="entryPrice">--</div>
                         </div>
                         <div class="market-item">
-                            <div class="market-label">Bid</div>
-                            <div class="market-value" id="bidPrice">--</div>
+                            <div class="market-label">Stop Loss</div>
+                            <div class="market-value" id="stopLoss">--</div>
                         </div>
                         <div class="market-item">
-                            <div class="market-label">Ask</div>
-                            <div class="market-value" id="askPrice">--</div>
+                            <div class="market-label">Take Profit</div>
+                            <div class="market-value" id="takeProfit">--</div>
                         </div>
                         <div class="market-item">
-                            <div class="market-label">Volume</div>
-                            <div class="market-value" id="volume">--</div>
+                            <div class="market-label">Contracts</div>
+                            <div class="market-value" id="contracts">--</div>
                         </div>
                     </div>
                 </div>
@@ -394,27 +395,37 @@
 
         // Handle state updates
         socket.on('state', (state) => {
+            console.log('[UI] Received state update:', state);
             botState = state;
             updateUI(state);
         });
 
         // Handle status changes
         socket.on('status', (status) => {
+            console.log('[UI] Received status update:', status);
             updateStatus(status);
         });
 
-        // Handle market data
+        // Handle market data (for real-time price updates)
         socket.on('market-data', (data) => {
+            console.log('[UI] Received market-data:', data);
+            updateMarketData(data);
+        });
+        
+        socket.on('marketData', (data) => {
+            console.log('[UI] Received marketData:', data);
             updateMarketData(data);
         });
 
         // Handle trades
         socket.on('trade', (trade) => {
+            console.log('[UI] Received trade:', trade);
             addTrade(trade);
         });
 
         // Handle position updates
         socket.on('position', (position) => {
+            console.log('[UI] Received position update:', position);
             updatePosition(position);
         });
 
@@ -459,7 +470,7 @@
             badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
             badge.className = `status-badge ${status}`;
             
-            if (status === 'running') {
+            if (status === 'trading' || status === 'running') {
                 indicator.style.display = 'inline-block';
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
@@ -479,46 +490,127 @@
             }
         }
 
-        // Update market data
+        // Update market data (for real-time price monitoring - optional display)
         function updateMarketData(data) {
-            document.getElementById('lastPrice').textContent = data.lastPrice ? `$${data.lastPrice.toFixed(2)}` : '--';
-            document.getElementById('bidPrice').textContent = data.bid ? `$${data.bid.toFixed(2)}` : '--';
-            document.getElementById('askPrice').textContent = data.ask ? `$${data.ask.toFixed(2)}` : '--';
-            document.getElementById('volume').textContent = data.volume || '--';
+            if (!data) return;
+            
+            // Market data is still received but no longer displayed in the main UI
+            // This could be used for price alerts, strategy decisions, etc.
+            console.log('[UI] Market data received:', data);
+            
+            // Optional: Could update a separate price ticker or use for real-time calculations
+            // For now, just log the data as position data comes from userapi
         }
 
-        // Update position
+        // Update position with rich userapi data
         function updatePosition(position) {
             const sideEl = document.getElementById('positionSide');
             const detailsEl = document.getElementById('positionDetails');
             const pnlEl = document.getElementById('positionPnL');
             
+            // Update position fields from rich userapi data
+            const entryPriceEl = document.getElementById('entryPrice');
+            const stopLossEl = document.getElementById('stopLoss');
+            const takeProfitEl = document.getElementById('takeProfit');
+            const contractsEl = document.getElementById('contracts');
+            
             if (position) {
+                // Main position display
                 sideEl.textContent = position.side.toUpperCase();
                 sideEl.className = `position-side ${position.side}`;
-                detailsEl.textContent = `${position.quantity} @ $${position.entryPrice.toFixed(2)}`;
                 
-                const pnl = position.unrealizedPnL || 0;
-                pnlEl.textContent = `$${pnl.toFixed(2)}`;
-                pnlEl.className = `metric-value ${pnl >= 0 ? 'positive' : 'negative'}`;
+                // Extract rich data from userapi
+                const averagePrice = position.averagePrice || position.entryPrice || 0;
+                const positionSize = position.positionSize || position.quantity || position.size || 0;
+                const profitAndLoss = position.profitAndLoss || position.unrealizedPnL || 0;
+                const stopLoss = position.stopLoss || null;
+                const takeProfit = position.takeProfit || null;
+                
+                // Update position details (instrument info)
+                detailsEl.textContent = position.instrument || position.contractId || position.symbol || 'Unknown';
+                
+                // Update P&L with rich userapi profitAndLoss field
+                pnlEl.textContent = `$${(typeof profitAndLoss === 'number' ? profitAndLoss.toFixed(2) : '0.00')}`;
+                pnlEl.className = `metric-value ${profitAndLoss >= 0 ? 'positive' : 'negative'}`;
+                
+                // Update position fields with userapi rich data
+                entryPriceEl.textContent = (averagePrice && typeof averagePrice === 'number') ? `$${averagePrice.toFixed(1)}` : '--';
+                contractsEl.textContent = positionSize || '--';
+                
+                // Stop Loss and Take Profit from userapi
+                stopLossEl.textContent = (stopLoss && typeof stopLoss === 'number') ? `$${stopLoss.toFixed(1)}` : '--';
+                takeProfitEl.textContent = (takeProfit && typeof takeProfit === 'number') ? `$${takeProfit.toFixed(1)}` : '--';
+                
+                console.log('[UI] Position update with rich data:', {
+                    averagePrice, positionSize, profitAndLoss, stopLoss, takeProfit,
+                    originalPosition: position
+                });
+                
             } else {
+                // No position - clear all fields
                 sideEl.textContent = 'No Position';
                 sideEl.className = 'position-side';
                 detailsEl.textContent = '--';
                 pnlEl.textContent = '$0.00';
                 pnlEl.className = 'metric-value';
+                
+                // Clear position fields
+                entryPriceEl.textContent = '--';
+                stopLossEl.textContent = '--';
+                takeProfitEl.textContent = '--';
+                contractsEl.textContent = '--';
             }
         }
 
-        // Update metrics
+        // Update metrics with live TopStepX statistics
         function updateMetrics(metrics) {
-            document.getElementById('totalTrades').textContent = metrics.totalTrades;
-            document.getElementById('winRate').textContent = `${metrics.winRate.toFixed(1)}%`;
-            document.getElementById('totalPnL').textContent = `$${metrics.totalPnL.toFixed(2)}`;
-            document.getElementById('totalPnL').className = `metric-value ${metrics.totalPnL >= 0 ? 'positive' : 'negative'}`;
-            document.getElementById('profitFactor').textContent = metrics.profitFactor.toFixed(2);
-            document.getElementById('avgWin').textContent = `$${metrics.averageWin.toFixed(2)}`;
-            document.getElementById('avgLoss').textContent = `$${metrics.averageLoss.toFixed(2)}`;
+            if (!metrics) {
+                // Load live statistics from TopStepX API
+                loadLiveStatistics();
+                return;
+            }
+            
+            document.getElementById('totalTrades').textContent = metrics.totalTrades || 0;
+            document.getElementById('winRate').textContent = `${(metrics.winRate || 0).toFixed(1)}%`;
+            document.getElementById('totalPnL').textContent = `$${(metrics.totalPnL || 0).toFixed(2)}`;
+            document.getElementById('totalPnL').className = `metric-value ${(metrics.totalPnL || 0) >= 0 ? 'positive' : 'negative'}`;
+            document.getElementById('profitFactor').textContent = (metrics.profitFactor || 0).toFixed(2);
+            document.getElementById('avgWin').textContent = `$${(metrics.averageWin || 0).toFixed(2)}`;
+            document.getElementById('avgLoss').textContent = `$${(metrics.averageLoss || 0).toFixed(2)}`;
+        }
+
+        // Load live statistics from TopStepX via aggregator -> connection manager
+        async function loadLiveStatistics() {
+            try {
+                console.log('[STATS] Loading live statistics from TopStepX API...');
+                const response = await fetch('/api/statistics');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const statistics = await response.json();
+                console.log('[STATS] Received live statistics:', statistics);
+                
+                // Update the UI with live statistics
+                document.getElementById('totalTrades').textContent = statistics.totalTrades || 0;
+                document.getElementById('winRate').textContent = `${(statistics.winRate || 0).toFixed(1)}%`;
+                
+                const totalPnL = statistics.totalPnL || 0;
+                document.getElementById('totalPnL').textContent = `$${totalPnL.toFixed(2)}`;
+                document.getElementById('totalPnL').className = `metric-value ${totalPnL >= 0 ? 'positive' : 'negative'}`;
+                
+                document.getElementById('profitFactor').textContent = (statistics.profitFactor || 0).toFixed(2);
+                document.getElementById('avgWin').textContent = `$${(statistics.averageWin || 0).toFixed(2)}`;
+                document.getElementById('avgLoss').textContent = `$${(statistics.averageLoss || 0).toFixed(2)}`;
+                
+                console.log('[STATS] ✅ Performance metrics updated with live TopStepX data');
+                
+            } catch (error) {
+                console.error('[STATS] ❌ Failed to load live statistics:', error);
+                // Keep the existing local metrics if API fails
+                console.log('[STATS] Using local bot metrics as fallback');
+            }
         }
 
         // Add trade to table
@@ -543,7 +635,7 @@
                 <td>${time}</td>
                 <td>${trade.side}</td>
                 <td>${trade.quantity}</td>
-                <td>$${trade.price.toFixed(2)}</td>
+                <td>$${trade.price.toFixed(1)}</td>
                 <td class="${pnlClass}">$${trade.pnl.toFixed(2)}</td>
             `;
         }
@@ -568,14 +660,10 @@
 
         // Control functions
         async function startBot() {
-            const account = prompt('Enter trading account (DEMO/LIVE_1/PAPER):', 'DEMO');
-            if (!account) return;
-            
             try {
                 const response = await fetch('/api/start', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account })
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 
                 if (!response.ok) {
@@ -624,11 +712,20 @@
             window.location.assign(configUrl);
         }
 
-        // Load initial state
+        // Load initial state and statistics
         fetch('/api/state')
             .then(res => res.json())
-            .then(state => updateUI(state))
+            .then(state => {
+                updateUI(state);
+                // Load live statistics after initial state
+                loadLiveStatistics();
+            })
             .catch(console.error);
+            
+        // Refresh statistics periodically (every 30 seconds)
+        setInterval(() => {
+            loadLiveStatistics();
+        }, 30000);
     </script>
 </body>
 </html>

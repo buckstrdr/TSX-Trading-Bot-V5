@@ -791,9 +791,9 @@ class ConnectionManagerAdapter extends EventEmitter {
                     
                     let unrealizedPnL;
                     if (position.side === 'LONG' || position.side === 'BUY') {
-                        unrealizedPnL = priceDiff * position.quantity * multiplier;
+                        unrealizedPnL = (priceDiff * position.quantity * multiplier) - 1.24; // Include $1.24 round-trip commission
                     } else {
-                        unrealizedPnL = -priceDiff * position.quantity * multiplier;
+                        unrealizedPnL = (-priceDiff * position.quantity * multiplier) - 1.24; // Include $1.24 round-trip commission
                     }
                     
                     position.unrealizedPnL = unrealizedPnL;

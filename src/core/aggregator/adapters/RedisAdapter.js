@@ -22,6 +22,7 @@ class RedisAdapter extends EventEmitter {
                 // Subscription channels (from manual-trading and connection-manager)
                 aggregatorOrders: 'aggregator:orders',
                 aggregatorRequests: 'aggregator:requests', // New channel for manual trading requests
+                aggregatorPnLRequests: 'aggregator:pnl_requests', // P&L module requests
                 marketData: 'market:data',
                 connectionManagerFills: 'connection-manager:fills',
                 orderManagement: 'order:management',
@@ -32,6 +33,7 @@ class RedisAdapter extends EventEmitter {
                 aggregatorStatus: 'aggregator:status',
                 aggregatorMetrics: 'aggregator:metrics',
                 aggregatorMarketData: 'aggregator:market-data', // New channel for republished market data
+                pnlResponses: 'pnl:responses', // P&L module responses
                 instanceControl: 'instance:control'
             },
             
@@ -517,14 +519,25 @@ class RedisAdapter extends EventEmitter {
                 // Check if we have a pending request for this response
                 const pendingRequest = this.pendingForwardRequests.get(response.requestId);
                 if (pendingRequest && pendingRequest.responseChannel) {
-                    // Forward the raw response without aggregator metadata
-                    const responseStr = JSON.stringify(response);
-                    await this.publisher.publish(pendingRequest.responseChannel, responseStr);
-                    this.log(`✅ Forwarded response to ${pendingRequest.responseChannel} (raw publish)`);
-                    
-                    // Add debug for CLOSE_POSITION
-                    if (response.type === 'CLOSE_POSITION') {
-                        this.log(`🔍 [DEBUG] CLOSE_POSITION response forwarded to ${pendingRequest.responseChannel}`);
+                    // Special handling for P&L extraction from position responses
+                    if (pendingRequest.type === 'GET_ACCOUNT_PNL' && response.type === 'GET_POSITIONS') {
+                        this.log(`📥 Processing P&L extraction from position response (ID: ${response.requestId})`);
+                        await this.processPnLExtraction(response, pendingRequest);
+                    } else {
+                        // Forward the raw response without aggregator metadata
+                        const responseStr = JSON.stringify(response);
+                        await this.publisher.publish(pendingRequest.responseChannel, responseStr);
+                        this.log(`✅ Forwarded response to ${pendingRequest.responseChannel} (raw publish)`);
+                        
+                        // Add debug for statistics responses
+                        if (response.type === 'GET_STATISTICS') {
+                            this.log(`📊 [STATISTICS] Response forwarded: requestId=${response.requestId}, channel=${pendingRequest.responseChannel}, hasStats=${!!response.statistics}`);
+                        }
+                        
+                        // Add debug for CLOSE_POSITION
+                        if (response.type === 'CLOSE_POSITION') {
+                            this.log(`🔍 [DEBUG] CLOSE_POSITION response forwarded to ${pendingRequest.responseChannel}`);
+                        }
                     }
                     
                     // Clean up
@@ -550,7 +563,7 @@ class RedisAdapter extends EventEmitter {
                 this.log(`🔄 Received aggregator request: ${requestData.type || 'unknown'}, requestId: ${requestData.requestId}`);
                 
                 // Handle responses for requests that need forwarding back
-                const responseNeededTypes = ['GET_POSITIONS', 'GET_ACCOUNTS', 'GET_CONTRACTS', 'UPDATE_SLTP', 'CLOSE_POSITION', 'GET_WORKING_ORDERS', 'GET_ACTIVE_CONTRACTS'];
+                const responseNeededTypes = ['GET_POSITIONS', 'GET_ACCOUNTS', 'GET_CONTRACTS', 'UPDATE_SLTP', 'CLOSE_POSITION', 'GET_WORKING_ORDERS', 'GET_ACTIVE_CONTRACTS', 'GET_STATISTICS'];
                 if (responseNeededTypes.includes(requestData.type) && requestData.responseChannel) {
                     this.log(`📌 Storing pending request ${requestData.requestId} for response forwarding to ${requestData.responseChannel}`);
                     // Store the request info for response forwarding
@@ -560,9 +573,12 @@ class RedisAdapter extends EventEmitter {
                         type: requestData.type
                     });
                     
-                    // Add debug logging for CLOSE_POSITION
+                    // Add debug logging for specific request types
                     if (requestData.type === 'CLOSE_POSITION') {
                         this.log(`🔍 [DEBUG] CLOSE_POSITION request stored: requestId=${requestData.requestId}, responseChannel=${requestData.responseChannel}`);
+                    }
+                    if (requestData.type === 'GET_STATISTICS') {
+                        this.log(`📊 [STATISTICS] Request stored: requestId=${requestData.requestId}, responseChannel=${requestData.responseChannel}, accountId=${requestData.accountId}`);
                     }
                     
                     // Clean up old pending requests after timeout
@@ -582,6 +598,119 @@ class RedisAdapter extends EventEmitter {
                 this.handleParseError('aggregator:requests', message, error);
             }
         });
+    }
+    
+    /**
+     * Subscribe to P&L requests from P&L module and handle with position data extraction
+     */
+    async subscribeToPnLRequests() {
+        this.log('💰 Setting up P&L request handling...');
+        
+        await this.subscribe(this.config.channels.aggregatorPnLRequests, async (message) => {
+            try {
+                const request = JSON.parse(message);
+                this.log(`📊 Received P&L request: ${request.type} (ID: ${request.requestId})`);
+                
+                // Handle P&L requests by getting position data which includes P&L
+                switch (request.type) {
+                    case 'GET_ACCOUNT_PNL':
+                        // Request positions which include P&L data
+                        const positionRequest = {
+                            type: 'GET_POSITIONS',
+                            requestId: request.requestId,
+                            responseChannel: 'pnl:positions_response',
+                            accountId: request.accountId,
+                            timestamp: Date.now()
+                        };
+                        
+                        // Store the request info for P&L extraction when response comes back
+                        this.pendingForwardRequests.set(request.requestId, {
+                            responseChannel: 'pnl:responses',
+                            timestamp: Date.now(),
+                            type: 'GET_ACCOUNT_PNL',
+                            originalRequest: request
+                        });
+                        
+                        await this.publish(this.config.channels.connectionManagerRequests, positionRequest);
+                        this.log(`📤 Requested positions for P&L extraction: ${request.requestId}`);
+                        break;
+                        
+                    default:
+                        this.log(`❌ Unknown P&L request type: ${request.type}`);
+                        
+                        // Send error response back to P&L module
+                        const errorResponse = {
+                            requestId: request.requestId,
+                            success: false,
+                            error: `Unknown P&L request type: ${request.type}`,
+                            timestamp: Date.now()
+                        };
+                        await this.publishRaw(this.config.channels.pnlResponses, JSON.stringify(errorResponse));
+                        return;
+                }
+                
+            } catch (error) {
+                this.handleParseError('aggregator:pnl_requests', message, error);
+            }
+        });
+        
+        // P&L extraction is now handled in the main connection-manager response handler above
+        
+    }
+    
+    /**
+     * Process P&L extraction from position response
+     */
+    async processPnLExtraction(response, pendingRequest) {
+        let totalDailyPnL = 0;
+        let totalUnrealizedPnL = 0;
+        let totalRealizedPnL = 0;
+        
+        // DEBUG: Log the full response to see what we're getting
+        this.log(`🔍 [DEBUG P&L] Full response:`, JSON.stringify(response, null, 2));
+        
+        // Extract P&L from position data
+        if (response.success && response.positions && Array.isArray(response.positions)) {
+            response.positions.forEach(position => {
+                // Extract P&L with proper commission calculation
+                // TopStepX userapi uses 'profitAndLoss' field for live P&L
+                const unrealizedPnL = position.profitAndLoss || position.unrealizedPnL || position.unrealizedPL || position.unrealized || 0;
+                const realizedPnL = position.realizedPnL || position.realizedPL || position.realized || 0;
+                
+                totalUnrealizedPnL += unrealizedPnL;
+                totalRealizedPnL += realizedPnL;
+                
+                this.log(`📊 Position ${position.positionId || 'unknown'}: Unrealized=${unrealizedPnL}, Realized=${realizedPnL}`);
+            });
+            
+            // Calculate total daily P&L including commission
+            totalDailyPnL = totalUnrealizedPnL + totalRealizedPnL;
+            
+            // Account for $1.24 round-trip commission per trade
+            // This is already included in the API P&L data, but we can validate
+            this.log(`💰 Calculated P&L: Daily=${totalDailyPnL}, Unrealized=${totalUnrealizedPnL}, Realized=${totalRealizedPnL}`);
+        }
+        
+        // Send P&L response to P&L module with full position data included
+        const pnlResponse = {
+            requestId: response.requestId,
+            success: response.success,
+            pnl: {
+                dailyPnL: totalDailyPnL,
+                unrealizedPnL: totalUnrealizedPnL,
+                realizedPnL: totalRealizedPnL,
+                commission: 1.24, // Round-trip commission
+                timestamp: Date.now(),
+                // Include full position data for rich UI integration
+                positions: response.positions || []
+            },
+            // Also include positions at top level for easy access
+            positions: response.positions || [],
+            timestamp: Date.now()
+        };
+        
+        await this.publishRaw(this.config.channels.pnlResponses, JSON.stringify(pnlResponse));
+        this.log(`✅ Sent P&L response: Daily=${totalDailyPnL}, ${response.positions?.length || 0} positions included`);
     }
     
     /**

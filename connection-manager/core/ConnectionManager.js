@@ -1241,6 +1241,22 @@ class ConnectionManager extends EventEmitter {
                     await this.handleGetActiveContractsRequest(data);
                     break;
                     
+                case 'GET_STATISTICS':
+                    await this.handleGetStatisticsRequest(data);
+                    break;
+                    
+                case 'SEARCH_TRADES':
+                    await this.handleSearchTradesRequest(data);
+                    break;
+                    
+                case 'GET_TRADES':
+                    await this.handleGetTradesRequest(data);
+                    break;
+                    
+                case 'GET_ACCOUNT_SUMMARY':
+                    await this.handleGetAccountSummaryRequest(data);
+                    break;
+                    
                 default:
                     console.error(`❌ Unknown request type: ${type}`);
                     // Send error response
@@ -1451,8 +1467,10 @@ class ConnectionManager extends EventEmitter {
             const { requestId, accountId, contractId, closeType, size } = data;
             console.log(`🔄 Processing CLOSE_POSITION request for contract: ${contractId} (${closeType})`);
             console.log(`   Account: ${accountId}, Size: ${size || 'full'}`);
+            console.log(`🔍 [CLAUDE DEBUG] Step 1: Initial logging complete`);
             
             // Debug: Log incoming data types
+            console.log(`🔍 [CLAUDE DEBUG] Step 2: About to log data types`);
             console.log(`🔍 [DEBUG] Data types received:`);
             console.log(`   - accountId type: ${typeof accountId}, value: ${accountId}`);
             console.log(`   - contractId type: ${typeof contractId}, value: ${contractId}`);
@@ -1460,8 +1478,11 @@ class ConnectionManager extends EventEmitter {
             console.log(`   - size type: ${typeof size}, value: ${size}`);
             console.log(`   - Full request data:`, JSON.stringify(data, null, 2));
             
+            console.log(`🔍 [CLAUDE DEBUG] Step 3: Data types logged, getting auth token`);
+            
             // Get authentication token
             const token = this.authModule.getToken();
+            console.log(`🔍 [CLAUDE DEBUG] Step 4: Auth token retrieved: ${token ? 'YES' : 'NO'}`);
             if (!token) {
                 throw new Error('No authentication token available');
             }
@@ -1493,6 +1514,7 @@ class ConnectionManager extends EventEmitter {
                 };
             }
             
+            console.log(`🔍 [CLAUDE DEBUG] Step 5: About to make TopStep API call`);
             console.log(`📤 Making TopStep API call to: ${apiUrl}`);
             console.log(`📤 Payload:`, JSON.stringify(payload, null, 2));
             console.log(`📤 [DEBUG] Payload details:`);
@@ -1800,6 +1822,81 @@ class ConnectionManager extends EventEmitter {
         }
     }
     
+    async handleGetStatisticsRequest(data) {
+        try {
+            const { requestId, accountId, statisticsType = 'todaystats' } = data;
+            console.log(`📈 Processing GET_STATISTICS request, requestId: ${requestId}, accountId: ${accountId}, type: ${statisticsType}`);
+            
+            const axios = require('axios');
+            
+            // Call TopStepX Statistics API
+            const url = `https://userapi.topstepx.com/Statistics/${statisticsType}`;
+            console.log(`🔍 Requesting statistics from: ${url}`);
+            
+            const response = await axios.post(url, {
+                tradingAccountId: accountId
+            }, {
+                headers: this.authModule.getAuthHeaders(),
+                timeout: 15000
+            });
+            
+            console.log(`📊 TopStep Statistics API response status: ${response.status}`);
+            console.log(`📊 RAW Statistics response data (FULL):`, JSON.stringify(response.data, null, 2));
+            console.log(`📊 Response headers:`, JSON.stringify(response.headers, null, 2));
+            
+            // Transform the statistics data
+            const statistics = response.data || {};
+            const transformedStats = {
+                totalTrades: statistics.totalTrades || statistics.numberOfTrades || 0,
+                winRate: statistics.winRate || (statistics.winningTrades / Math.max(statistics.totalTrades, 1) * 100) || 0,
+                totalPnL: statistics.totalPnL || statistics.netPnL || statistics.realizedPnL || 0,
+                profitFactor: statistics.profitFactor || (statistics.grossProfit / Math.max(Math.abs(statistics.grossLoss), 1)) || 0,
+                averageWin: statistics.averageWin || statistics.avgWinningTrade || 0,
+                averageLoss: Math.abs(statistics.averageLoss || statistics.avgLosingTrade || 0),
+                grossProfit: statistics.grossProfit || 0,
+                grossLoss: statistics.grossLoss || 0,
+                winningTrades: statistics.winningTrades || 0,
+                losingTrades: statistics.losingTrades || 0,
+                largestWin: statistics.largestWin || 0,
+                largestLoss: statistics.largestLoss || 0
+            };
+            
+            console.log(`✅ Transformed statistics:`, transformedStats);
+            
+            // Send response back via standard channel
+            const responseData = {
+                requestId,
+                type: 'GET_STATISTICS',
+                success: true,
+                statistics: transformedStats,
+                accountId,
+                statisticsType,
+                timestamp: Date.now()
+            };
+            await this.eventBroadcaster.publisher.publish('connection-manager:response', JSON.stringify(responseData));
+            
+            console.log(`✅ Sent statistics response for request ${requestId}`);
+            
+        } catch (error) {
+            console.error(`❌ Failed to fetch statistics:`, error.message);
+            if (error.response) {
+                console.error(`   Status: ${error.response.status}`);
+                console.error(`   Response:`, JSON.stringify(error.response.data));
+            }
+            
+            // Send error response
+            const errorData = {
+                requestId: data.requestId,
+                type: 'GET_STATISTICS',
+                success: false,
+                statistics: null,
+                error: error.message,
+                timestamp: Date.now()
+            };
+            await this.eventBroadcaster.publisher.publish('connection-manager:response', JSON.stringify(errorData));
+        }
+    }
+
     async handleGetActiveContractsRequest(data) {
         try {
             const { requestId, responseChannel } = data;
@@ -2501,7 +2598,28 @@ class ConnectionManager extends EventEmitter {
      */
     async discoverActiveContracts() {
         try {
-            console.log('🔍 Discovering active contracts from account positions...');
+            console.log('📊 Discovering available contracts for market data subscription...');
+            
+            // PRIMARY: Get ALL available contracts from TopStep API (not just ones with positions)
+            // This ensures traders get market data for all tradeable instruments
+            const topStepContracts = await this.fetchContractsFromTopStep();
+            
+            if (topStepContracts && topStepContracts.length > 0) {
+                console.log(`📊 Got ${topStepContracts.length} active contracts from TopStep API`);
+                
+                // Extract contract IDs from contract objects
+                const contractIds = topStepContracts.map(contract => 
+                    typeof contract === 'string' ? contract : contract.contractId
+                );
+                
+                console.log(`✅ Contract discovery complete: ${contractIds.length} contracts found`);
+                console.log(`📊 Contracts available for trading: ${contractIds.slice(0, 5).join(', ')}${contractIds.length > 5 ? ` (and ${contractIds.length - 5} more)` : ''}`);
+                
+                return contractIds;
+            }
+            
+            // FALLBACK: If API fails, check open positions as backup
+            console.warn('⚠️  TopStep contract API unavailable, falling back to position-based discovery...');
             
             // Get all accounts
             const accountsResult = await this.fetchAccountsFromTopStep();
@@ -2512,7 +2630,7 @@ class ConnectionManager extends EventEmitter {
             
             const activeContracts = new Set();
             
-            // Check open positions for each account to find active contracts
+            // Check open positions for each account to find active contracts (fallback only)
             for (const account of accountsResult.accounts) {
                 try {
                     console.log(`🔍 Checking positions for account ${account.id}...`);
@@ -2542,31 +2660,8 @@ class ConnectionManager extends EventEmitter {
                 }
             }
             
-            // Convert Set to Array and add common trading contracts if none found
             const contractsArray = Array.from(activeContracts);
-            
-            if (contractsArray.length === 0) {
-                console.log('📊 No contracts found in open positions, fetching active contracts dynamically...');
-                
-                // First try to get contracts from TopStep API
-                const topStepContracts = await this.fetchContractsFromTopStep();
-                
-                if (topStepContracts && topStepContracts.length > 0) {
-                    console.log(`📊 Got ${topStepContracts.length} active contracts from TopStep API`);
-                    // Extract contract IDs from contract objects
-                    const contractIds = topStepContracts.map(contract => 
-                        typeof contract === 'string' ? contract : contract.contractId
-                    );
-                    contractsArray.push(...contractIds);
-                } else {
-                    console.log('❌ No contracts available from TopStep API');
-                    // Do not use any hardcoded contracts - only use what TopStep provides
-                }
-                
-                console.log(`📊 Added ${contractsArray.length} active contracts for market data`);
-            }
-            
-            console.log(`✅ Contract discovery complete: ${contractsArray.length} contracts found`);
+            console.log(`✅ Fallback contract discovery complete: ${contractsArray.length} contracts found`);
             return contractsArray;
             
         } catch (error) {
@@ -2943,9 +3038,13 @@ class ConnectionManager extends EventEmitter {
             // Since positions don't contain order ID, we'll use the most recent position
             // that matches our instrument and was created recently
             const now = Date.now();
+            
+            // Convert instrument to contractId for proper matching (MGC -> CON.F.US.MGC.Z25)
+            const expectedContractId = await this.getContractIdForInstrument(bracketInfo.instrument);
+            
             const recentPositions = positions.filter(pos => {
-                // Check if position matches our instrument
-                const matchesInstrument = pos.contractId === bracketInfo.instrument;
+                // Check if position matches our instrument (using contractId)
+                const matchesInstrument = pos.contractId === expectedContractId;
                 
                 // Check if position was created recently (within last 30 seconds)
                 // Note: userapi returns 'entryTime' instead of 'creationTimestamp'
@@ -3118,49 +3217,21 @@ class ConnectionManager extends EventEmitter {
         try {
             const axios = require('axios');
             
-            // First, let's check if the order exists in the order list
-            console.log(`📋 [BRACKET] Checking order status for ${topStepOrderId}...`);
+            // Skip order status check since TopStep Order API endpoints are inconsistent
+            // Instead, rely on position checking to determine if order has filled
+            console.log(`📋 [BRACKET] Checking positions for filled order ${topStepOrderId}...`);
             
-            try {
-                const ordersResponse = await axios.get(
-                    `https://userapi.topstepx.com/Order/searchOpen?account=${bracketInfo.accountId}`,
-                    {
-                        headers: this.authModule.getAuthHeaders(),
-                        timeout: 10000
-                    }
-                );
-                
-                if (ordersResponse.data && Array.isArray(ordersResponse.data)) {
-                    const order = ordersResponse.data.find(o => o.id === topStepOrderId);
-                    if (order) {
-                        console.log(`📋 [BRACKET] Order found with status: ${order.status || 'unknown'}`);
-                        if (order.status === 'Pending' || order.status === 'Working') {
-                            // Order hasn't filled yet - retry later
-                            const nextDelay = Math.min(2000 * Math.pow(1.5, bracketInfo.retryCount), 10000);
-                            console.log(`📋 [BRACKET] Order still pending, retrying in ${nextDelay}ms...`);
-                            setTimeout(async () => {
-                                await this.retryBracketOrderCheck(topStepOrderId);
-                            }, nextDelay);
-                            return;
-                        }
-                    }
-                }
-            } catch (orderError) {
-                console.log(`📋 [BRACKET] Could not check order status: ${orderError.message}`);
-            }
-            
-            // Now check for positions
-            const response = await axios.post(
-                `https://api.topstepx.com/api/Positions/searchOpen`,
-                { accountId: bracketInfo.accountId },
+            // Now check for positions using same endpoint as working position queries
+            const response = await axios.get(
+                `https://userapi.topstepx.com/Position?accountId=${bracketInfo.accountId}`,
                 {
                     headers: this.authModule.getAuthHeaders(),
                     timeout: 10000
                 }
             );
             
-            // Check for positions in the response
-            const positions = response.data?.positions || response.data;
+            // Check for positions in the response (userapi returns array directly)
+            const positions = response.data;
             
             if (!positions || !Array.isArray(positions) || positions.length === 0) {
                 throw new Error('No positions found after retry');
@@ -3182,6 +3253,9 @@ class ConnectionManager extends EventEmitter {
                 });
             });
             
+            // Convert instrument to contractId for proper matching (MGC -> CON.F.US.MGC.Z25)
+            const expectedContractId = await this.getContractIdForInstrument(bracketInfo.instrument);
+            
             // Look for position by order ID or by matching instrument and recent creation
             const position = positions.find(pos => {
                 // Direct order ID match
@@ -3193,11 +3267,12 @@ class ConnectionManager extends EventEmitter {
                 }
                 
                 // Match by instrument and recent creation (within last 60 seconds + retry time)
-                if (pos.contractId === bracketInfo.instrument) {
+                // Note: expectedContractId should be calculated outside this callback
+                if (pos.contractId === expectedContractId) {
                     const posTime = new Date(pos.creationTimestamp || pos.openTime || pos.createdTime || pos.timestamp).getTime();
                     const orderTime = Date.now() - (60000 + (bracketInfo.retryCount * 5000)); // Adjust for retry time
                     if (posTime > orderTime) {
-                        console.log(`📋 [BRACKET] Found potential position by instrument and time`);
+                        console.log(`📋 [BRACKET] Found potential position by instrument and time (${bracketInfo.instrument} -> ${expectedContractId})`);
                         return true;
                     }
                 }
@@ -3638,17 +3713,59 @@ class ConnectionManager extends EventEmitter {
         return { valid: true };
     }
     
+    /**
+     * Get contract ID for instrument symbol (e.g., MGC -> CON.F.US.MGC.Z25)
+     */
+    async getContractIdForInstrument(instrument) {
+        // Check if we have cached mapping
+        if (this.contractCache.has(instrument)) {
+            return this.contractCache.get(instrument);
+        }
+        
+        // If not cached, refresh from TopStep API
+        console.log(`🔍 Contract not cached for ${instrument}, fetching from TopStep API...`);
+        const contracts = await this.fetchContractsFromTopStep();
+        
+        if (contracts && contracts.length > 0) {
+            // Update cache with symbol -> contract mappings
+            for (const contract of contracts) {
+                const contractId = typeof contract === 'string' ? contract : contract.contractId;
+                if (contractId && contractId.includes('.')) {
+                    // Extract symbol from contract ID (e.g., CON.F.US.MGC.Z25 -> MGC)
+                    const parts = contractId.split('.');
+                    if (parts.length >= 4) {
+                        const symbol = parts[3];
+                        this.contractCache.set(symbol, contractId);
+                        console.log(`📋 Cached contract mapping: ${symbol} -> ${contractId}`);
+                    }
+                }
+            }
+            
+            // Return the requested contract if found
+            return this.contractCache.get(instrument) || null;
+        }
+        
+        console.error(`❌ Failed to find contract for instrument: ${instrument}`);
+        return null;
+    }
+    
     async placeMarketOrder(orderData) {
         try {
             const axios = require('axios');
             const { accountId, instrument, side, quantity } = orderData;
+            
+            // Convert instrument symbol to contract ID (e.g., MGC -> CON.F.US.MGC.Z25)
+            const contractId = await this.getContractIdForInstrument(instrument);
+            if (!contractId) {
+                throw new Error(`Contract not found for instrument: ${instrument}`);
+            }
             
             // Convert side to TopStep format (0 = BUY, 1 = SELL)
             const sideInt = side === 'BUY' ? 0 : 1;
             
             const topStepOrderData = {
                 accountId: accountId,
-                contractId: instrument,
+                contractId: contractId,  // Use mapped contract ID instead of symbol
                 type: 2, // Market order
                 side: sideInt,
                 size: quantity,
@@ -3704,9 +3821,15 @@ class ConnectionManager extends EventEmitter {
             // Round price to valid tick size
             const adjustedPrice = await this.roundToTickSize(orderPrice, instrument);
             
+            // Convert instrument symbol to contract ID
+            const contractId = await this.getContractIdForInstrument(instrument);
+            if (!contractId) {
+                throw new Error(`Contract not found for instrument: ${instrument}`);
+            }
+            
             const topStepOrderData = {
                 accountId: accountId,
-                contractId: instrument,
+                contractId: contractId,
                 type: 1, // Limit order
                 side: sideInt,
                 size: quantity,
@@ -3762,9 +3885,15 @@ class ConnectionManager extends EventEmitter {
             // Round stop price to valid tick size
             const adjustedStopPrice = await this.roundToTickSize(stopPrice, instrument);
             
+            // Convert instrument symbol to contract ID
+            const contractId = await this.getContractIdForInstrument(instrument);
+            if (!contractId) {
+                throw new Error(`Contract not found for instrument: ${instrument}`);
+            }
+            
             const topStepOrderData = {
                 accountId: accountId,
-                contractId: instrument,
+                contractId: contractId,
                 type: 4, // Stop order
                 side: sideInt,
                 size: quantity,
@@ -4043,17 +4172,39 @@ class ConnectionManager extends EventEmitter {
             let positions = [];
             
             if (accountId) {
-                // Get positions for specific account using the correct userapi endpoint
+                // Get positions for specific account using multiple endpoints and parameters
                 console.log(`📊 [Positions] Fetching positions for account ${accountId}`);
                 
-                const url = `https://userapi.topstepx.com/Position?accountId=${accountId}`;
-                console.log(`🔍 Requesting positions from: ${url}`);
+                // Try multiple endpoints and parameters for complete position data
+                const endpoints = [
+                    `https://userapi.topstepx.com/Position?accountId=${accountId}&includeWorkingOrders=true`,
+                    `https://userapi.topstepx.com/Position?accountId=${accountId}`,
+                    `https://api.topstepx.com/api/Position?accountId=${accountId}`
+                ];
                 
-                const response = await axios.get(url, {
-                    headers: this.authModule.getAuthHeaders(),
-                    timeout: 10000
-                });
+                let response = null;
+                let usedEndpoint = null;
                 
+                for (const url of endpoints) {
+                    try {
+                        console.log(`🔍 Trying endpoint: ${url}`);
+                        response = await axios.get(url, {
+                            headers: this.authModule.getAuthHeaders(),
+                            timeout: 10000
+                        });
+                        usedEndpoint = url;
+                        break;
+                    } catch (error) {
+                        console.log(`⚠️ Endpoint failed: ${url} - ${error.message}`);
+                        continue;
+                    }
+                }
+                
+                if (!response) {
+                    throw new Error('All position endpoints failed');
+                }
+                
+                console.log(`✅ [Positions] Successfully used endpoint: ${usedEndpoint}`);
                 console.log(`📊 [Positions] API Response Status: ${response.status}`);
                 console.log(`📊 [Positions] API Response Data:`, JSON.stringify(response.data, null, 2));
                 
@@ -4081,22 +4232,40 @@ class ConnectionManager extends EventEmitter {
                 }
             }
             
-            // Format positions for aggregator
+            // Format positions for aggregator with enhanced field mapping
             const formattedPositions = positions.map(pos => ({
-                id: pos.positionId,
+                // Core position identification
+                id: pos.id || pos.positionId || null,
                 accountId: pos.accountId,
-                instrument: pos.contractName || pos.instrument,
-                symbol: pos.symbol || pos.contractName,
-                side: pos.side || (pos.quantity > 0 ? 'BUY' : 'SELL'),
-                quantity: Math.abs(pos.quantity || 0),
+                
+                // Instrument details
+                instrument: pos.contractId || pos.contractName || pos.instrument,
+                symbol: pos.symbolName || pos.symbolId || pos.symbol || pos.contractName,
+                
+                // Position details
+                side: pos.side || (pos.positionSize > 0 ? 'BUY' : pos.positionSize < 0 ? 'SELL' : 'UNKNOWN'),
+                quantity: Math.abs(pos.positionSize || pos.quantity || 0),
                 avgPrice: pos.averagePrice || pos.fillPrice || 0,
-                currentPrice: pos.lastPrice || 0,
-                unrealizedPnL: pos.unrealizedPnl || 0,
-                realizedPnL: pos.realizedPnl || 0,
+                
+                // P&L information (using the rich userapi data)
+                currentPrice: pos.currentPrice || pos.lastPrice || 0,
+                unrealizedPnL: pos.profitAndLoss || pos.unrealizedPnl || pos.unrealizedPnL || 0,
+                realizedPnL: pos.realizedPnL || pos.realizedPnl || 0,
+                
+                // Risk management
                 stopLoss: pos.stopLoss || null,
                 takeProfit: pos.takeProfit || null,
+                stopLossOrderId: pos.stopLossOrderId || null,
+                takeProfitOrderId: pos.takeProfitOrderId || null,
+                
+                // Additional fields
+                toMake: pos.toMake || null,
+                risk: pos.risk || null,
                 orderId: pos.orderId || null,
-                openTime: pos.openTime || pos.createdAt || new Date().toISOString()
+                openTime: pos.entryTime || pos.openTime || pos.createdAt || new Date().toISOString(),
+                
+                // Raw data for debugging
+                _raw: pos
             }));
             
             console.log(`📊 [Positions] Found ${formattedPositions.length} open positions`);
@@ -4321,6 +4490,270 @@ class ConnectionManager extends EventEmitter {
                     positionId: positionId
                 }
             });
+        }
+    }
+
+    /**
+     * Handle SEARCH_TRADES request - Search for trades within a date range and filter
+     */
+    async handleSearchTradesRequest(data) {
+        try {
+            const { requestId, searchParams, responseChannel } = data;
+            console.log(`📊 Processing SEARCH_TRADES request, requestId: ${requestId}, responseChannel: ${responseChannel}`);
+            
+            // Ensure authentication is valid
+            const tokenResult = await this.authModule.ensureValidToken();
+            if (!tokenResult.success) {
+                throw new Error('Authentication required');
+            }
+            
+            // Prepare search parameters
+            const {
+                accountId,
+                symbol,
+                startDate,
+                endDate,
+                status = 'FILLED'
+            } = searchParams || {};
+            
+            if (!accountId) {
+                throw new Error('Account ID is required for trade search');
+            }
+            
+            // Call TopStep API to search for trades
+            const axios = require('axios');
+            const response = await axios.post(`${this.authModule.baseURL}/api/v1/trades/search`, {
+                accountId: parseInt(accountId),
+                symbol,
+                startDate,
+                endDate,
+                status
+            }, {
+                headers: this.authModule.getAuthHeaders(),
+                timeout: 10000
+            });
+            
+            const trades = response.data || [];
+            console.log(`✅ Found ${trades.length} trades for account ${accountId}`);
+            
+            // Send response back to the specified channel
+            const responseData = {
+                requestId,
+                type: 'SEARCH_TRADES',
+                success: true,
+                trades,
+                count: trades.length,
+                searchParams: searchParams,
+                timestamp: Date.now()
+            };
+            
+            const channel = responseChannel || 'connection-manager:response';
+            await this.eventBroadcaster.publisher.publish(channel, JSON.stringify(responseData));
+            console.log(`📤 Sent SEARCH_TRADES response to ${channel}`);
+            
+        } catch (error) {
+            console.error(`❌ Failed to search trades:`, error.message);
+            
+            // Send error response
+            const errorData = {
+                requestId: data.requestId,
+                type: 'SEARCH_TRADES',
+                success: false,
+                error: error.message,
+                trades: [],
+                timestamp: Date.now()
+            };
+            const channel = data.responseChannel || 'connection-manager:response';
+            await this.eventBroadcaster.publisher.publish(channel, JSON.stringify(errorData));
+        }
+    }
+
+    /**
+     * Handle GET_TRADES request - Get specific trades for a position
+     */
+    async handleGetTradesRequest(data) {
+        try {
+            const { requestId, accountId, positionId, responseChannel } = data;
+            console.log(`📊 Processing GET_TRADES request, requestId: ${requestId}, positionId: ${positionId}, responseChannel: ${responseChannel}`);
+            
+            // Ensure authentication is valid
+            const tokenResult = await this.authModule.ensureValidToken();
+            if (!tokenResult.success) {
+                throw new Error('Authentication required');
+            }
+            
+            if (!accountId) {
+                throw new Error('Account ID is required');
+            }
+            
+            // For now, use the same search endpoint but filter by position if available
+            const axios = require('axios');
+            let trades = [];
+            
+            if (positionId) {
+                // Try to get trades for specific position (this endpoint may not exist)
+                try {
+                    const response = await axios.get(`${this.authModule.baseURL}/api/v1/positions/${positionId}/trades`, {
+                        headers: this.authModule.getAuthHeaders(),
+                        timeout: 10000
+                    });
+                    trades = response.data || [];
+                } catch (positionError) {
+                    console.log('⚠️ Position-specific trades endpoint not available, using general search');
+                    // Fallback to general trade search for today
+                    const today = new Date();
+                    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+                    
+                    const searchResponse = await axios.post(`${this.authModule.baseURL}/api/v1/trades/search`, {
+                        accountId: parseInt(accountId),
+                        startDate: startOfDay.toISOString(),
+                        endDate: new Date().toISOString(),
+                        status: 'FILLED'
+                    }, {
+                        headers: this.authModule.getAuthHeaders(),
+                        timeout: 10000
+                    });
+                    
+                    trades = searchResponse.data || [];
+                }
+            } else {
+                // Get recent trades for account
+                const today = new Date();
+                const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+                
+                const response = await axios.post(`${this.authModule.baseURL}/api/v1/trades/search`, {
+                    accountId: parseInt(accountId),
+                    startDate: startOfDay.toISOString(),
+                    endDate: new Date().toISOString(),
+                    status: 'FILLED'
+                }, {
+                    headers: this.authModule.getAuthHeaders(),
+                    timeout: 10000
+                });
+                
+                trades = response.data || [];
+            }
+            
+            console.log(`✅ Found ${trades.length} trades for account ${accountId}`);
+            
+            // Send response back to the specified channel
+            const responseData = {
+                requestId,
+                type: 'GET_TRADES',
+                success: true,
+                trades,
+                count: trades.length,
+                accountId,
+                positionId,
+                timestamp: Date.now()
+            };
+            
+            const channel = responseChannel || 'connection-manager:response';
+            await this.eventBroadcaster.publisher.publish(channel, JSON.stringify(responseData));
+            console.log(`📤 Sent GET_TRADES response to ${channel}`);
+            
+        } catch (error) {
+            console.error(`❌ Failed to get trades:`, error.message);
+            
+            // Send error response
+            const errorData = {
+                requestId: data.requestId,
+                type: 'GET_TRADES',
+                success: false,
+                error: error.message,
+                trades: [],
+                timestamp: Date.now()
+            };
+            const channel = data.responseChannel || 'connection-manager:response';
+            await this.eventBroadcaster.publisher.publish(channel, JSON.stringify(errorData));
+            console.log(`📤 Sent GET_TRADES error response to ${channel}`);
+        }
+    }
+
+    /**
+     * Handle GET_ACCOUNT_SUMMARY request - Get account summary including P&L
+     */
+    async handleGetAccountSummaryRequest(data) {
+        try {
+            const { requestId, accountId, date, responseChannel } = data;
+            console.log(`📊 Processing GET_ACCOUNT_SUMMARY request, requestId: ${requestId}, accountId: ${accountId}, responseChannel: ${responseChannel}`);
+            
+            // Use existing account fetch functionality
+            const accountsResult = await this.fetchAccountsFromTopStep(false);
+            
+            if (!accountsResult.success) {
+                throw new Error(accountsResult.error || 'Failed to fetch account information');
+            }
+            
+            // Find the specific account if provided
+            let accountSummary;
+            if (accountId) {
+                const account = accountsResult.accounts.find(acc => 
+                    acc.id.toString() === accountId.toString() || acc.name === accountId
+                );
+                
+                if (!account) {
+                    throw new Error(`Account ${accountId} not found`);
+                }
+                
+                accountSummary = {
+                    accountId: account.id,
+                    accountName: account.name,
+                    balance: account.balance,
+                    canTrade: account.canTrade,
+                    isVisible: account.isVisible,
+                    simulated: account.simulated,
+                    dailyPnL: 0, // Would need additional API call to get P&L
+                    currency: 'USD',
+                    lastUpdated: new Date().toISOString()
+                };
+            } else {
+                // Return summary for all accounts
+                accountSummary = accountsResult.accounts.map(account => ({
+                    accountId: account.id,
+                    accountName: account.name,
+                    balance: account.balance,
+                    canTrade: account.canTrade,
+                    isVisible: account.isVisible,
+                    simulated: account.simulated,
+                    dailyPnL: 0, // Would need additional API call to get P&L
+                    currency: 'USD',
+                    lastUpdated: new Date().toISOString()
+                }));
+            }
+            
+            console.log(`✅ Retrieved account summary for ${accountId || 'all accounts'}`);
+            
+            // Send response back to the specified channel
+            const responseData = {
+                requestId,
+                type: 'GET_ACCOUNT_SUMMARY',
+                success: true,
+                accountSummary,
+                accountId,
+                date: date || new Date().toISOString().split('T')[0],
+                timestamp: Date.now()
+            };
+            
+            const channel = responseChannel || 'connection-manager:response';
+            await this.eventBroadcaster.publisher.publish(channel, JSON.stringify(responseData));
+            console.log(`📤 Sent GET_ACCOUNT_SUMMARY response to ${channel}`);
+            
+        } catch (error) {
+            console.error(`❌ Failed to get account summary:`, error.message);
+            
+            // Send error response
+            const errorData = {
+                requestId: data.requestId,
+                type: 'GET_ACCOUNT_SUMMARY',
+                success: false,
+                error: error.message,
+                accountSummary: null,
+                timestamp: Date.now()
+            };
+            const channel = data.responseChannel || 'connection-manager:response';
+            await this.eventBroadcaster.publisher.publish(channel, JSON.stringify(errorData));
+            console.log(`📤 Sent GET_ACCOUNT_SUMMARY error response to ${channel}`);
         }
     }
 }

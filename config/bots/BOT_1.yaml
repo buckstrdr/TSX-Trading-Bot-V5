@@ -1,25 +1,21 @@
 botId: BOT_1
 port: 3004
-description: MGC with EMA
+description: MGC Live Trading Test
 instrument: F.US.MGC
 accountId: '9627376'
+testMode: false
+marketDataSource: LIVE
 strategy:
-  type: EMA_RETRACE
+  type: TEST_TIME
   parameters:
-    emaFast: 6
-    emaSlow: 19
-    mode: STANDARD
-    maxBarsSinceEMA: 5
-    postWinCandleTimeout: 60
-    postLossCandleTimeout: 300
-    minEMASpread: 0.5
+    intervalMinutes: 5
+    tradeDurationMinutes: 3
+    candleLookbackMinutes: 1
+    positionSize: 1
     maxRiskPoints: 3
-    stopLossBuffer: 1
-    stopLossOffset: 0
-    riskRewardRatio: 3
-    trailingStopEnabled: false
-    candleIntervalSeconds: 60
-    emaUpdateMode: TICK_BASED
+    enableLogging: true
+    dollarPerPoint: 10
+    riskRewardRatio: 1
 risk:
   dollarRiskPerTrade: 50
   maxConsecutiveLosses: 3
@@ -58,11 +54,11 @@ execution:
   retryFailedOrders: true
   maxRetries: 1
 monitoring:
-  trackMetrics: false
+  trackMetrics: true
   metricsInterval: 60000
   alertOnDrawdown: 500
-  logTrades: false
-  logLevel: ERROR
+  logTrades: true
+  logLevel: INFO
 aggregator:
   enabled: true
   redisConfig:

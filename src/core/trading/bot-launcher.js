@@ -4,6 +4,7 @@
  */
 
 const TradingBot = require('./TradingBot');
+const PnLModule = require('../pnl/PnLModule');
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -12,6 +13,7 @@ const yaml = require('js-yaml');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const redis = require('redis');
+const axios = require('axios');
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -29,6 +31,37 @@ if (!botId || !account) {
 
 console.log(`Starting ${botId} with account ${account}`);
 console.log(`Config file path (resolved): ${configPath}`);
+
+// Simple rate limiter for console output to prevent flooding
+let messageCount = 0;
+let lastReset = Date.now();
+const originalLog = console.log;
+
+// Override console.log to rate limit output
+console.log = (...args) => {
+    const now = Date.now();
+    if (now - lastReset > 1000) {
+        messageCount = 0;
+        lastReset = now;
+    }
+    
+    // Skip market data and quote messages entirely
+    const message = args.join(' ');
+    if (message.includes('Quote data') || 
+        message.includes('Market data') || 
+        message.includes('QUOTE') ||
+        message.includes('TRADE') ||
+        message.includes('bid:') ||
+        message.includes('ask:')) {
+        return; // Skip these messages
+    }
+    
+    // Rate limit other messages
+    if (messageCount < 20) {
+        originalLog(...args);
+        messageCount++;
+    }
+};
 
 // Create Express app for bot's individual UI/API
 const app = express();
@@ -332,8 +365,79 @@ app.get('/api/accounts', async (req, res) => {
     }
 });
 
+// Function to fetch TopStepX account statistics directly
+async function fetchTopStepXStatistics(accountId) {
+    try {
+        console.log(`[TOPSTEP API] Fetching statistics for account ${accountId}...`);
+        
+        // Call TopStepX userapi directly for today's statistics
+        const response = await axios.post('https://userapi.topstepx.com/Statistics/todaystats', {
+            tradingAccountId: accountId  // Use correct parameter name
+        }, {
+            timeout: 15000,  // Match Connection Manager timeout
+            headers: {
+                'Content-Type': 'application/json'
+                // Note: Missing authentication headers - this is likely why we get empty responses
+            }
+        });
+        
+        console.log(`[TOPSTEP API] Raw response:`, response.data);
+        
+        if (response.data && response.status === 200) {
+            const stats = response.data;
+            
+            // Transform TopStepX statistics to match bot UI expectations
+            const transformedMetrics = {
+                totalTrades: stats.numberOfTrades || stats.totalTrades || 0,
+                winRate: parseFloat(stats.winRate || ((stats.winningTrades || 0) / Math.max(stats.numberOfTrades || 1, 1) * 100)) || 0,
+                totalPnL: parseFloat(stats.netPnL || stats.totalPnL || stats.realizedPnL || 0),
+                profitFactor: parseFloat(stats.profitFactor || ((stats.grossProfit || 0) / Math.max(Math.abs(stats.grossLoss || 1), 1))) || 0,
+                averageWin: parseFloat(stats.avgWinningTrade || stats.averageWin || 0),
+                averageLoss: Math.abs(parseFloat(stats.avgLosingTrade || stats.averageLoss || 0)),
+                drawdown: parseFloat(stats.maxDrawdown || stats.drawdown || 0),
+                grossProfit: parseFloat(stats.grossProfit || 0),
+                grossLoss: Math.abs(parseFloat(stats.grossLoss || 0)),
+                winningTrades: parseInt(stats.winningTrades || 0),
+                losingTrades: parseInt(stats.losingTrades || 0),
+                largestWin: parseFloat(stats.largestWinningTrade || stats.largestWin || 0),
+                largestLoss: Math.abs(parseFloat(stats.largestLosingTrade || stats.largestLoss || 0))
+            };
+            
+            console.log(`[TOPSTEP API] ✅ Transformed metrics:`, transformedMetrics);
+            
+            return {
+                success: true,
+                metrics: transformedMetrics,
+                source: 'topstepx-direct'
+            };
+        } else {
+            throw new Error(`Invalid response from TopStepX API: ${response.status}`);
+        }
+        
+    } catch (error) {
+        console.error(`[TOPSTEP API] ❌ Error fetching statistics:`, error.message);
+        
+        // Return fallback empty metrics if API call fails
+        return {
+            success: false,
+            error: error.message,
+            metrics: {
+                totalTrades: 0,
+                winRate: 0,
+                totalPnL: 0,
+                profitFactor: 0,
+                averageWin: 0,
+                averageLoss: 0,
+                drawdown: 0
+            },
+            source: 'fallback'
+        };
+    }
+}
+
 // Bot instance
 let bot = null;
+let pnlModule = null;
 let botState = {
     status: 'initializing',  // Will change to 'connected' when server starts, 'trading' when trading starts
     connected: false,
@@ -342,7 +446,10 @@ let botState = {
     metrics: {
         totalTrades: 0,
         winRate: 0,
-        pnl: 0,
+        totalPnL: 0,
+        profitFactor: 0,
+        averageWin: 0,
+        averageLoss: 0,
         drawdown: 0
     }
 };
@@ -358,12 +465,197 @@ app.get('/health', (req, res) => {
     });
 });
 
-app.get('/status', (req, res) => {
-    res.json(botState);
+app.get('/status', async (req, res) => {
+    try {
+        // Get TopStepX account statistics directly
+        const accountId = bot?.config?.accountId || '9627376';
+        const topStepStats = await fetchTopStepXStatistics(accountId);
+        
+        // Merge TopStepX account statistics with bot state
+        const enrichedState = {
+            ...botState,
+            metrics: topStepStats.metrics || botState.metrics
+        };
+        
+        res.json(enrichedState);
+    } catch (error) {
+        console.error('Error fetching TopStepX statistics:', error);
+        // Fallback to internal metrics if API call fails
+        res.json(botState);
+    }
+});
+
+// API endpoint for trade history
+app.get('/api/trades', (req, res) => {
+    res.json(botState.trades || []);
+});
+
+// API endpoint for statistics from TopStepX via aggregator -> connection manager
+app.get('/api/statistics', async (req, res) => {
+    let publisher = null;
+    let subscriber = null;
+    
+    try {
+        const { v4: uuidv4 } = require('uuid');
+        
+        // Create Redis clients
+        publisher = redis.createClient({ host: 'localhost', port: 6379 });
+        subscriber = redis.createClient({ host: 'localhost', port: 6379 });
+        
+        await publisher.connect();
+        await subscriber.connect();
+        
+        const requestId = uuidv4();
+        const responseChannel = `statistics:response:${requestId}`;
+        
+        // Set up response listener with timeout
+        const responsePromise = new Promise((resolve, reject) => {
+            let isResolved = false;
+            
+            const timeout = setTimeout(async () => {
+                if (!isResolved) {
+                    isResolved = true;
+                    try {
+                        await subscriber.unsubscribe(responseChannel);
+                    } catch (e) {
+                        // Ignore unsubscribe errors
+                    }
+                    reject(new Error('Timeout waiting for statistics'));
+                }
+            }, 10000); // 10 second timeout
+            
+            subscriber.subscribe(responseChannel, async (message) => {
+                if (!isResolved) {
+                    isResolved = true;
+                    clearTimeout(timeout);
+                    try {
+                        await subscriber.unsubscribe(responseChannel);
+                    } catch (e) {
+                        // Ignore unsubscribe errors
+                    }
+                    try {
+                        const response = JSON.parse(message);
+                        console.log('[STATISTICS API] Received response from aggregator:', response);
+                        
+                        if (response.success && response.statistics) {
+                            resolve(response.statistics);
+                        } else {
+                            reject(new Error(response.error || 'Failed to fetch statistics'));
+                        }
+                    } catch (err) {
+                        console.error('[STATISTICS API] Error parsing response:', err);
+                        reject(err);
+                    }
+                }
+            });
+        });
+        
+        // Get accountId from bot config
+        const accountId = bot?.config?.accountId || account || '9627376';
+        
+        // Publish request through aggregator to connection manager
+        const request = {
+            type: 'GET_STATISTICS',
+            requestId: requestId,
+            responseChannel: responseChannel,
+            accountId: accountId,
+            statisticsType: 'todaystats', // or 'daystats'
+            timestamp: Date.now()
+        };
+        
+        console.log('[STATISTICS API] Publishing request to aggregator:', request);
+        await publisher.publish('aggregator:requests', JSON.stringify(request));
+        
+        // Wait for response
+        const statistics = await responsePromise;
+        
+        // Transform statistics to match UI expectations
+        const transformedStats = {
+            totalTrades: statistics.totalTrades || statistics.numberOfTrades || 0,
+            winRate: statistics.winRate || (statistics.winningTrades / Math.max(statistics.totalTrades, 1) * 100) || 0,
+            totalPnL: statistics.totalPnL || statistics.netPnL || statistics.realizedPnL || 0,
+            profitFactor: statistics.profitFactor || (statistics.grossProfit / Math.max(Math.abs(statistics.grossLoss), 1)) || 0,
+            averageWin: statistics.averageWin || statistics.avgWinningTrade || 0,
+            averageLoss: Math.abs(statistics.averageLoss || statistics.avgLosingTrade || 0),
+            grossProfit: statistics.grossProfit || 0,
+            grossLoss: statistics.grossLoss || 0,
+            winningTrades: statistics.winningTrades || 0,
+            losingTrades: statistics.losingTrades || 0,
+            largestWin: statistics.largestWin || 0,
+            largestLoss: statistics.largestLoss || 0
+        };
+        
+        console.log('[STATISTICS API] Transformed statistics:', transformedStats);
+        res.json(transformedStats);
+        
+    } catch (error) {
+        console.error('Error fetching statistics:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch statistics', 
+            details: error.message 
+        });
+    } finally {
+        // Clean up Redis connections
+        if (publisher) {
+            try {
+                await publisher.quit();
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+        }
+        if (subscriber) {
+            try {
+                await subscriber.quit();
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+        }
+    }
 });
 
 // Alias for status (some UI components use /api/state)
 app.get('/api/state', (req, res) => {
+    // Sync current state from bot and strategy before returning
+    if (bot && bot.state && bot.strategy) {
+        // Update market data
+        botState.marketData = {
+            lastPrice: bot.state.lastPrice,
+            lastVolume: bot.state.lastVolume,
+            lastTimestamp: bot.state.lastTimestamp,
+            bid: '--',
+            ask: '--',
+            volume: bot.state.lastVolume || '--'
+        };
+        
+        // Sync position from strategy state
+        if (bot.strategy.state && bot.strategy.state.currentPosition) {
+            botState.position = {
+                side: bot.strategy.state.currentPosition.toLowerCase(),
+                quantity: 1,
+                entryPrice: bot.state.lastPrice || 0,
+                unrealizedPnL: 0
+            };
+            console.log(`[API STATE] Found strategy position: ${bot.strategy.state.currentPosition}`);
+        } else {
+            botState.position = null;
+        }
+        
+        // Update status
+        if (bot.state.status === 'RUNNING') {
+            botState.status = 'trading';
+        } else if (bot.state.status === 'READY') {
+            botState.status = 'connected';
+        }
+        
+        console.log(`[API STATE] Returning state:`, {
+            status: botState.status,
+            position: botState.position,
+            hasBot: !!bot,
+            hasStrategy: !!bot.strategy,
+            strategyState: bot.strategy.state?.currentPosition
+        });
+    }
+    
     res.json(botState);
 });
 
@@ -381,6 +673,16 @@ async function initializeBot() {
         
         // Create bot instance with the loaded configuration
         bot = new TradingBot(config);
+        
+        // Initialize P&L module for real-time P&L tracking from API
+        console.log(`[P&L] Initializing P&L Module for ${account}...`);
+        pnlModule = new PnLModule({
+            refreshInterval: 30000, // Refresh every 30 seconds
+            requestTimeout: 15000,
+            enableDebugLogging: false
+        });
+        await pnlModule.initialize();
+        console.log(`[P&L] ✅ P&L Module connected to live API system`);
         
         // Set up event listeners
         bot.on('status-change', (status) => {
@@ -560,12 +862,34 @@ async function startBot() {
         // Create bot instance with the loaded configuration
         bot = new TradingBot(config);
 
+        // Initialize P&L module for real-time P&L tracking from API
+        if (!pnlModule) {
+            console.log(`[P&L] Initializing P&L Module for ${config.accountId}...`);
+            pnlModule = new PnLModule({
+                refreshInterval: 30000, // Refresh every 30 seconds
+                requestTimeout: 15000,
+                enableDebugLogging: false
+            });
+            await pnlModule.initialize();
+            console.log(`[P&L] ✅ P&L Module connected to live API system`);
+        }
+
         // Set up bot event listeners
-        bot.on('status-change', (status) => {
-            botState.status = status;
-            io.emit('status', status);
+        bot.on('started', (data) => {
+            botState.status = 'trading';
+            io.emit('status', 'trading');
+            io.emit('state', botState);
             if (process.send) {
-                process.send({ type: 'status', status });
+                process.send({ type: 'status', status: 'trading' });
+            }
+        });
+
+        bot.on('stopped', (data) => {
+            botState.status = 'connected';
+            io.emit('status', 'connected');
+            io.emit('state', botState);
+            if (process.send) {
+                process.send({ type: 'status', status: 'connected' });
             }
         });
 
@@ -574,14 +898,106 @@ async function startBot() {
             botState.metrics.totalTrades++;
             updateMetrics();
             io.emit('trade', trade);
+            io.emit('state', botState);
             if (process.send) {
                 process.send({ type: 'trade', trade });
             }
         });
 
-        bot.on('position-update', (position) => {
+        bot.on('positionOpened', (data) => {
+            console.log(`[POSITION OPENED] Recording entry for trade tracking:`, data);
+            
+            // Extract position data (could be from signal or fill)
+            const position = data.position;
+            
             botState.position = position;
+            
+            // Store entry data for trade calculation when position closes
+            botState.currentTradeEntry = {
+                side: position.side,
+                entryPrice: position.openPrice || position.entryPrice,
+                quantity: position.quantity || position.positionSize || 1,
+                openTime: position.openTime || new Date().toISOString(),
+                symbol: position.symbol || bot.config?.instrument || 'MGC'
+            };
+            
+            console.log(`[POSITION OPENED] Stored entry data:`, botState.currentTradeEntry);
+            
             io.emit('position', position);
+            io.emit('state', botState);
+        });
+
+        bot.on('positionClosed', (data) => {
+            console.log(`[POSITION CLOSED] Processing trade completion:`, data);
+            
+            // Create trade record from the closed position data
+            if (data.position && botState.currentTradeEntry) {
+                const position = data.position;
+                
+                const trade = {
+                    timestamp: position.closeTime || new Date().toISOString(),
+                    side: position.side.toUpperCase(),
+                    quantity: position.quantity,
+                    price: position.closePrice,
+                    pnl: position.realizedPnL || 0,
+                    entryPrice: position.openPrice,
+                    exitPrice: position.closePrice,
+                    symbol: position.symbol || 'MGC'
+                };
+                
+                console.log(`[TRADE COMPLETED] Created trade record:`, trade);
+                
+                // Add to botState trades and update metrics
+                botState.trades.push(trade);
+                updateMetrics();
+                
+                // Clear current trade entry
+                botState.currentTradeEntry = null;
+                
+                // Emit trade and updated state
+                io.emit('trade', trade);
+                io.emit('state', botState);
+            } else if (botState.currentTradeEntry) {
+                // Fallback: calculate from stored entry if position data incomplete
+                console.log(`[TRADE COMPLETED] Using fallback calculation from entry data`);
+                const multiplier = 10; // MGC: $10 per point
+                const entryPrice = botState.currentTradeEntry.entryPrice;
+                const exitPrice = bot.state.lastPrice;
+                const quantity = botState.currentTradeEntry.quantity;
+                
+                // Calculate P&L using same formula as position display (includes $1.24 commission)
+                let pnl = 0;
+                if (botState.currentTradeEntry.side.toLowerCase() === 'long') {
+                    pnl = ((exitPrice - entryPrice) * quantity * multiplier) - 1.24; // Subtract round-trip commission
+                } else {
+                    pnl = ((entryPrice - exitPrice) * quantity * multiplier) - 1.24; // Subtract round-trip commission
+                }
+                
+                const trade = {
+                    timestamp: new Date().toISOString(),
+                    side: botState.currentTradeEntry.side.toUpperCase(),
+                    quantity: quantity,
+                    price: exitPrice,
+                    pnl: pnl,
+                    entryPrice: entryPrice,
+                    exitPrice: exitPrice,
+                    symbol: botState.currentTradeEntry.symbol
+                };
+                
+                // Add to botState trades and update metrics
+                botState.trades.push(trade);
+                updateMetrics();
+                
+                // Clear current trade entry
+                botState.currentTradeEntry = null;
+                
+                // Emit trade and updated state
+                io.emit('trade', trade);
+                io.emit('state', botState);
+            }
+            
+            botState.position = null;
+            io.emit('position', null);
         });
 
         bot.on('error', (error) => {
@@ -591,6 +1007,252 @@ async function startBot() {
                 process.send({ type: 'error', error: error.message });
             }
         });
+
+        // Track previous position state for trade completion detection
+        let previousPositionState = null;
+        
+        // Add periodic state updates to ensure UI stays synced
+        setInterval(async () => {
+            console.log(`[PERIODIC] Running periodic update at ${new Date().toISOString()}`);
+            console.log(`[PERIODIC] Condition check - bot: ${!!bot}, bot.state: ${!!(bot && bot.state)}, bot.strategy: ${!!(bot && bot.strategy)}`);
+            if (bot && bot.state && bot.strategy) {
+                // Update botState with current market data from bot
+                botState.marketData = {
+                    lastPrice: bot.state.lastPrice,
+                    lastVolume: bot.state.lastVolume,
+                    lastTimestamp: bot.state.lastTimestamp,
+                    bid: '--',
+                    ask: '--',
+                    volume: bot.state.lastVolume || '--'
+                };
+                
+                // Get current strategy position state
+                const currentStrategyPosition = bot.strategy.state?.currentPosition;
+                
+                // Sync position from strategy state - TEMPORARY: Always fetch position data for debugging
+                if (currentStrategyPosition || true) { // TEMP: Always try to fetch position data
+                    console.log(`[UI SYNC] Strategy has position: ${currentStrategyPosition}`);
+                    
+                    // Get entry price from stored position data or current price
+                    let entryPrice = bot.state.lastPrice || 0;
+                    if (botState.position && currentStrategyPosition && botState.position.side === currentStrategyPosition.toLowerCase()) {
+                        // Keep existing entry price if same position
+                        entryPrice = botState.position.entryPrice;
+                    }
+                    
+                    // Get rich position data directly from Connection Manager via P&L module
+                    let positionData = null;
+                    let unrealizedPnL = 0;
+                    let averagePrice = entryPrice;
+                    let stopLoss = null;
+                    let takeProfit = null;
+                    let quantity = 1;
+                    
+                    try {
+                        console.log(`[POSITION] 🔍 Bot Configuration Check:`, {
+                            botConfigAccountId: bot.config.accountId,
+                            botConfigAccount: bot.config.account, 
+                            botId: bot.config.botId,
+                            instrument: bot.config.instrument,
+                            configKeys: Object.keys(bot.config)
+                        });
+                        
+                        const accountId = bot.config.accountId || bot.config.account || '9627376';
+                        console.log(`[POSITION] Requesting full position data from API for account ${accountId}...`);
+                        
+                        // Request account P&L which includes position details
+                        const accountPnL = await pnlModule.getAccountPnL(accountId);
+                        unrealizedPnL = accountPnL.dailyPnL || 0;
+                        
+                        // Enhanced debugging - log the complete API response structure
+                        console.log(`[POSITION] 🔍 Complete API Response Structure:`, {
+                            hasPositions: !!(accountPnL.positions),
+                            positionsLength: accountPnL.positions?.length || 0,
+                            accountPnLKeys: Object.keys(accountPnL),
+                            fullResponse: JSON.stringify(accountPnL, null, 2)
+                        });
+                        
+                        // If we have position data in the response, extract rich fields
+                        if (accountPnL.positions && accountPnL.positions.length > 0) {
+                            console.log(`[POSITION] 🔍 Found ${accountPnL.positions.length} positions in API response:`);
+                            
+                            // Log all positions for debugging
+                            accountPnL.positions.forEach((pos, index) => {
+                                console.log(`[POSITION] Position ${index + 1}:`, {
+                                    instrument: pos.instrument,
+                                    contractId: pos.contractId,
+                                    symbol: pos.symbol,
+                                    side: pos.side,
+                                    positionSize: pos.positionSize,
+                                    averagePrice: pos.averagePrice,
+                                    stopLoss: pos.stopLoss,
+                                    takeProfit: pos.takeProfit,
+                                    profitAndLoss: pos.profitAndLoss,
+                                    allFields: Object.keys(pos)
+                                });
+                            });
+                            
+                            // Try multiple matching strategies to find MGC position
+                            let position = null;
+                            
+                            // Strategy 1: Match by instrument containing MGC
+                            position = accountPnL.positions.find(pos => 
+                                pos.instrument && pos.instrument.includes('MGC')
+                            );
+                            
+                            if (!position) {
+                                // Strategy 2: Match by contractId containing MGC
+                                position = accountPnL.positions.find(pos => 
+                                    pos.contractId && pos.contractId.includes('MGC')
+                                );
+                            }
+                            
+                            if (!position) {
+                                // Strategy 3: Match by symbol
+                                position = accountPnL.positions.find(pos => 
+                                    pos.symbol === 'MGC'
+                                );
+                            }
+                            
+                            if (!position) {
+                                // Strategy 4: Take first position with non-zero size
+                                position = accountPnL.positions.find(pos => 
+                                    pos.positionSize && Math.abs(pos.positionSize) > 0
+                                );
+                            }
+                            
+                            console.log(`[POSITION] 🎯 Position matching result:`, {
+                                foundPosition: !!position,
+                                matchedBy: position ? 'Found via matching logic' : 'No position found',
+                                positionId: position?.id || 'N/A'
+                            });
+                            
+                            if (position) {
+                                positionData = position;
+                                averagePrice = position.averagePrice || position.avgPrice || entryPrice;
+                                stopLoss = position.stopLoss;
+                                takeProfit = position.takeProfit;
+                                quantity = Math.abs(position.positionSize || position.quantity || 1);
+                                unrealizedPnL = position.profitAndLoss || position.unrealizedPnL || unrealizedPnL;
+                                
+                                console.log(`[POSITION] ✅ Extracted rich position data:`, {
+                                    averagePrice, stopLoss, takeProfit, quantity, unrealizedPnL,
+                                    rawAveragePrice: position.averagePrice,
+                                    rawAvgPrice: position.avgPrice,
+                                    rawStopLoss: position.stopLoss,
+                                    rawTakeProfit: position.takeProfit,
+                                    rawPositionSize: position.positionSize,
+                                    rawProfitAndLoss: position.profitAndLoss
+                                });
+                            } else {
+                                console.log(`[POSITION] ❌ No MGC position found in ${accountPnL.positions.length} positions`);
+                            }
+                        } else {
+                            console.log(`[POSITION] ❌ No positions array in API response`);
+                        }
+                        
+                        console.log(`[POSITION] ✅ API Position Data - Entry: $${averagePrice}, SL: ${stopLoss ? '$' + stopLoss : 'None'}, TP: ${takeProfit ? '$' + takeProfit : 'None'}, P&L: $${unrealizedPnL}`);
+                    } catch (error) {
+                        console.error(`[POSITION] ❌ API position request failed: ${error.message}`);
+                        console.error(`[POSITION] ❌ Using fallback values - position data will be limited`);
+                        averagePrice = entryPrice;
+                        unrealizedPnL = 0;
+                        stopLoss = null;
+                        takeProfit = null;
+                    }
+                    
+                    botState.position = {
+                        side: currentStrategyPosition ? currentStrategyPosition.toLowerCase() : 'NONE',
+                        quantity: quantity,
+                        entryPrice: averagePrice,
+                        unrealizedPnL: unrealizedPnL,
+                        // Add rich userapi fields for UI
+                        averagePrice: averagePrice,
+                        profitAndLoss: unrealizedPnL,
+                        stopLoss: stopLoss,
+                        takeProfit: takeProfit,
+                        // Keep original field names for compatibility
+                        positionSize: quantity,
+                        instrument: bot.config?.instrument || 'MGC'
+                    };
+                    console.log(`[UI SYNC] Updated botState.position:`, botState.position);
+                } else {
+                    // No position - check if we just closed a position
+                    if (previousPositionState && botState.position) {
+                        console.log(`[TRADE COMPLETED] Position closed - creating trade record`);
+                        
+                        // Get realized P&L from API for completed trade
+                        const currentPrice = bot.state.lastPrice;
+                        const entryPrice = botState.position.entryPrice;
+                        const side = botState.position.side.toUpperCase();
+                        const quantity = botState.position.quantity;
+                        
+                        let realizedPnL = 0;
+                        try {
+                            console.log(`[P&L] Getting final trade P&L from API for completed ${side} position...`);
+                            const accountPnL = await pnlModule.getAccountPnL(bot.config.accountId);
+                            
+                            // For completed trades, use the daily P&L change
+                            // In a real implementation, you'd want to track P&L before/after the trade
+                            realizedPnL = accountPnL.dailyPnL || 0;
+                            console.log(`[P&L] ✅ Trade completed - API P&L: $${realizedPnL}`);
+                        } catch (error) {
+                            console.error(`[P&L] ❌ API P&L request failed for completed trade: ${error.message}`);
+                            // Fallback to manual calculation
+                            const multiplier = 10; // MGC: $10 per point
+                            if (side === 'LONG') {
+                                realizedPnL = ((currentPrice - entryPrice) * quantity * multiplier) - 1.24;
+                            } else {
+                                realizedPnL = ((entryPrice - currentPrice) * quantity * multiplier) - 1.24;
+                            }
+                            console.log(`[P&L] 📊 Using fallback manual calculation for trade: $${realizedPnL}`);
+                        }
+                        
+                        // Create trade record
+                        const trade = {
+                            timestamp: new Date().toISOString(),
+                            side: side,
+                            quantity: quantity,
+                            price: currentPrice,
+                            pnl: realizedPnL,
+                            entryPrice: entryPrice,
+                            exitPrice: currentPrice,
+                            symbol: 'MGC'
+                        };
+                        
+                        console.log(`[TRADE COMPLETED] Created trade record:`, trade);
+                        
+                        // Add to botState trades and update metrics
+                        botState.trades.push(trade);
+                        updateMetrics();
+                        
+                        // Emit trade and updated state
+                        io.emit('trade', trade);
+                        io.emit('state', botState);
+                    }
+                    
+                    botState.position = null;
+                }
+                
+                // Update previous position state for next iteration
+                previousPositionState = currentStrategyPosition;
+                
+                // Update bot status based on actual bot state
+                if (bot.state.status === 'RUNNING' && botState.status !== 'trading') {
+                    botState.status = 'trading';
+                } else if (bot.state.status === 'READY' && botState.status !== 'connected') {
+                    botState.status = 'connected';
+                }
+                
+                // Emit state update to all connected clients
+                io.emit('state', botState);
+                io.emit('marketData', botState.marketData);
+                io.emit('position', botState.position);
+                io.emit('status', botState.status);
+            } else {
+                console.log(`[PERIODIC] Condition failed - skipping position data retrieval`);
+            }
+        }, 1000); // Update every second
 
         // Initialize the bot
         console.log(`Initializing ${botId}...`);
@@ -627,15 +1289,51 @@ async function startBot() {
 
 // Update bot metrics
 function updateMetrics() {
-    const wins = botState.trades.filter(t => t.pnl > 0).length;
-    const losses = botState.trades.filter(t => t.pnl < 0).length;
+    const trades = botState.trades;
+    const totalTrades = trades.length;
     
-    if (botState.trades.length > 0) {
-        botState.metrics.winRate = (wins / botState.trades.length) * 100;
-        botState.metrics.pnl = botState.trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    // Reset metrics
+    botState.metrics = {
+        totalTrades: totalTrades,
+        winRate: 0,
+        totalPnL: 0,
+        profitFactor: 0,
+        averageWin: 0,
+        averageLoss: 0,
+        drawdown: 0
+    };
+    
+    if (totalTrades > 0) {
+        const winningTrades = trades.filter(t => t.pnl > 0);
+        const losingTrades = trades.filter(t => t.pnl < 0);
+        
+        const totalPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+        const winRate = (winningTrades.length / totalTrades) * 100;
+        
+        // Calculate average win/loss
+        const averageWin = winningTrades.length > 0 ? 
+            winningTrades.reduce((sum, t) => sum + t.pnl, 0) / winningTrades.length : 0;
+        const averageLoss = losingTrades.length > 0 ? 
+            Math.abs(losingTrades.reduce((sum, t) => sum + t.pnl, 0) / losingTrades.length) : 0;
+        
+        // Calculate profit factor (gross profit / gross loss)
+        const grossProfit = winningTrades.reduce((sum, t) => sum + t.pnl, 0);
+        const grossLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.pnl, 0));
+        const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? 999 : 0);
+        
+        // Update metrics
+        botState.metrics.totalTrades = totalTrades;
+        botState.metrics.winRate = winRate;
+        botState.metrics.totalPnL = totalPnL;
+        botState.metrics.profitFactor = profitFactor;
+        botState.metrics.averageWin = averageWin;
+        botState.metrics.averageLoss = averageLoss;
+        
+        console.log(`[METRICS UPDATE] Calculated:`, botState.metrics);
     }
     
     io.emit('metrics', botState.metrics);
+    io.emit('state', botState);
 }
 
 // Handle IPC messages from parent process
@@ -661,6 +1359,11 @@ async function gracefulShutdown() {
     try {
         if (bot) {
             await bot.stop();
+        }
+        
+        if (pnlModule) {
+            console.log(`[P&L] Disconnecting P&L module...`);
+            await pnlModule.disconnect();
         }
         
         io.close();

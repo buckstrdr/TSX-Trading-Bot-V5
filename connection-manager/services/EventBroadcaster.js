@@ -179,10 +179,48 @@ class EventBroadcaster extends EventEmitter {
         
         await this.subscriber.subscribe(channel, (message) => {
             try {
-                const data = JSON.parse(message);
+                let data;
+                
+                // Debug logging removed for cleaner output
+                
+                if (typeof message === 'string') {
+                    data = JSON.parse(message);
+                } else if (typeof message === 'object' && message !== null) {
+                    // Check if this is a character array (Redis parsing issue)
+                    // Look for numeric keys indicating character array
+                    const keys = Object.keys(message);
+                    const isCharacterArray = keys.length > 0 && 
+                                            keys.every(key => /^\d+$/.test(key)) &&
+                                            typeof message[0] === 'string';
+                                            
+                    if (isCharacterArray) {
+                        console.log(`🔧 Detected character array with ${keys.length} elements`);
+                        // Reconstruct JSON string from character array
+                        const jsonString = Object.keys(message)
+                            .sort((a, b) => parseInt(a) - parseInt(b))
+                            .map(key => message[key])
+                            .join('');
+                        console.log(`🔧 Reconstructed JSON: ${jsonString.substring(0, 100)}...`);
+                        try {
+                            data = JSON.parse(jsonString);
+                            console.log(`✅ Successfully parsed: type=${data.type}, requestId=${data.requestId}`);
+                        } catch (parseError) {
+                            console.error(`❌ JSON parse failed:`, parseError.message);
+                            console.error(`   Full JSON: ${jsonString}`);
+                            throw parseError;
+                        }
+                    } else {
+                        // Message already properly parsed
+                        console.log(`🔍 Using message as-is (not character array)`);
+                        data = message;
+                    }
+                } else {
+                    throw new Error(`Unexpected message type: ${typeof message}`);
+                }
                 handler(data);
             } catch (error) {
                 console.error(`Error parsing message from ${channel}:`, error);
+                // Debug info removed for cleaner output
             }
         });
         
@@ -288,9 +326,32 @@ class EventBroadcaster extends EventEmitter {
     handleMarketDataMessage(data) {
         const { type, payload } = data;
         
+        // Handle the actual market data structure from MarketDataService
+        // MarketDataService sends: { instrument, type: 'QUOTE'/'TRADE'/'DEPTH', data }
+        if (payload && payload.instrument && payload.type && payload.data) {
+            // This is actual market data (quotes, trades, depth) from MarketDataService
+            const marketDataEvent = {
+                instrument: payload.instrument,
+                type: payload.type,
+                data: payload.data,
+                timestamp: data.timestamp
+            };
+            
+            // Emit specific event types for different market data
+            this.emit('MARKET_DATA', marketDataEvent);
+            this.emit(`MARKET_DATA_${payload.type}`, marketDataEvent); // MARKET_DATA_QUOTE, MARKET_DATA_TRADE, MARKET_DATA_DEPTH
+            
+            // Log market data reception (reduced frequency to avoid spam)
+            if (Math.random() < 0.01) { // Log ~1% of market data messages
+                console.log(`📊 Market data: ${payload.instrument} ${payload.type} - ${payload.type === 'QUOTE' ? `${payload.data.bid}/${payload.data.ask}` : payload.type === 'TRADE' ? `${payload.data.price} x ${payload.data.size}` : 'depth update'}`);
+            }
+            return;
+        }
+        
+        // Handle other event types (order fills, position updates, etc.)
         switch (type) {
             case 'MARKET_DATA':
-                // Handle market data events - order fills and position updates
+                // Handle legacy market data events - order fills and position updates
                 this.emit('MARKET_DATA', payload);
                 break;
             case 'ORDER_FILLED':
@@ -302,10 +363,17 @@ class EventBroadcaster extends EventEmitter {
                 this.emit('POSITION_UPDATE', payload);
                 break;
             default:
-                // Log unknown market data event types for debugging
-                console.log(`ℹ️ Received market data event type: ${type}`);
-                // Still emit the event in case someone wants to handle it
-                this.emit(type, payload);
+                // Check if this is a market data type we should handle
+                if (type === 'QUOTE' || type === 'TRADE' || type === 'DEPTH') {
+                    // Direct market data type - treat as market data
+                    this.emit('MARKET_DATA', { type, data: payload });
+                    this.emit(`MARKET_DATA_${type}`, { type, data: payload });
+                } else {
+                    // Log other unknown event types for debugging (but not market data types)
+                    console.log(`ℹ️ Received event type: ${type}`);
+                    // Still emit the event in case someone wants to handle it
+                    this.emit(type, payload);
+                }
         }
     }
 
@@ -365,6 +433,7 @@ class EventBroadcaster extends EventEmitter {
                         channel = this.channels.orderManagement;
                         break;
                     case 'MARKET_DATA':
+                    case 'market:data':  // Handle MarketDataService publications
                     case 'ORDER_FILLED':
                     case 'POSITION_UPDATE':
                         channel = this.channels.marketData;

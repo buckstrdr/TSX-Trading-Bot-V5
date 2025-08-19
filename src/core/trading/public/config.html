@@ -388,6 +388,7 @@
                         <select id="strategyType" class="form-control" onchange="updateStrategyParams(currentConfig)">
                             <option value="EMA_RETRACE">EMA 9 Retracement Scalping</option>
                             <option value="ORB_RUBBER_BAND">Opening Range Breakout + Rubber Band Reversal</option>
+                            <option value="TEST_TIME">Test Time Strategy - 5-minute interval testing</option>
                         </select>
                     </div>
 
@@ -1400,6 +1401,77 @@
                     `;
                     break;
                     
+                case 'TEST_TIME':
+                    html = `
+                        <div class="info-box" style="margin-bottom: 20px;">
+                            <strong>Test Time Strategy</strong> - Simple 5-minute interval testing strategy<br>
+                            • Every 5 minutes (xx:00, xx:05, xx:10, xx:15, etc.), looks at previous 1-minute candle<br>
+                            • Places trade in same direction as candle movement<br>
+                            • Holds position for exactly 3 minutes, then closes regardless of P&L<br>
+                            • Designed for testing trade placement infrastructure and timing
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Trade Interval (minutes)</label>
+                                <input type="number" id="intervalMinutes" class="form-control" value="${config?.strategy?.parameters?.intervalMinutes || 5}" min="1" max="15" step="1">
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    How often to check for trade opportunities
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Trade Duration (minutes)</label>
+                                <input type="number" id="tradeDurationMinutes" class="form-control" value="${config?.strategy?.parameters?.tradeDurationMinutes || 3}" min="1" max="10" step="1">
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    How long to hold each position
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Lookback Period (minutes)</label>
+                                <input type="number" id="candleLookbackMinutes" class="form-control" value="${config?.strategy?.parameters?.candleLookbackMinutes || 1}" min="1" max="5" step="1">
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    Previous candle period to analyze for direction
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Position Size</label>
+                                <input type="number" id="positionSize" class="form-control" value="${config?.strategy?.parameters?.positionSize || 1}" min="1" max="5" step="1">
+                                <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                    Number of contracts per trade (fixed for testing)
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Risk Points</label>
+                            <input type="number" id="maxRiskPointsTest" class="form-control" value="${config?.strategy?.parameters?.maxRiskPoints || 5.0}" min="1" max="20" step="0.5">
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Maximum risk per trade in points (MGC: $10 per point)
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="toggle-container">
+                                <label class="form-label" style="margin: 0;">Enable Logging</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="enableLogging" ${config?.strategy?.parameters?.enableLogging !== false ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="info-box" style="margin-top: 5px; font-size: 0.8rem;">
+                                Enable detailed console logging for debugging
+                            </div>
+                        </div>
+                        <div class="info-box">
+                            <strong>Trading Schedule:</strong><br>
+                            • Trade timing: xx:00, xx:05, xx:10, xx:15, xx:20, xx:25, etc.<br>
+                            • Close timing: xx:03, xx:08, xx:13, xx:18, xx:23, xx:28, etc.<br>
+                            • Trades LONG on green candles, SHORT on red candles<br>
+                            • Skips neutral candles (small price movement)<br>
+                            • Designed for infrastructure testing, not profit generation
+                        </div>
+                    `;
+                    break;
+                    
             }
             
             paramsDiv.innerHTML = html;
@@ -1599,6 +1671,18 @@
                         maxTradeDurationMinutes: parseInt(document.getElementById('maxTradeDurationMinutes').value)
                     };
                     
+                case 'TEST_TIME':
+                    return {
+                        intervalMinutes: parseInt(document.getElementById('intervalMinutes').value),
+                        tradeDurationMinutes: parseInt(document.getElementById('tradeDurationMinutes').value),
+                        candleLookbackMinutes: parseInt(document.getElementById('candleLookbackMinutes').value),
+                        positionSize: parseInt(document.getElementById('positionSize').value),
+                        maxRiskPoints: parseFloat(document.getElementById('maxRiskPointsTest').value),
+                        enableLogging: document.getElementById('enableLogging').checked,
+                        // Fixed parameters for test strategy
+                        dollarPerPoint: 10,  // MGC: $10 per point
+                        riskRewardRatio: 1   // 1:1 for testing
+                    };
                     
                 default:
                     return {};
