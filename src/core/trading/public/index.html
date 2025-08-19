@@ -73,13 +73,67 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: var(--spacing-xl);
-            margin-bottom: var(--spacing-xl);
+            margin-bottom: var(--spacing-lg);
         }
 
         @media (max-width: 1200px) {
             .dashboard-grid {
                 grid-template-columns: 1fr;
             }
+        }
+
+        .strategy-footer {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+
+        .strategy-footer .card-title {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .strategy-info {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            font-size: 0.95rem;
+        }
+
+        .strategy-line {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .strategy-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            min-width: 80px;
+        }
+
+        .strategy-value {
+            color: var(--text-primary);
+        }
+
+        .practice-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--accent-warning);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-sm);
+            margin-top: var(--spacing-md);
+            text-align: center;
+            font-size: 0.875rem;
+        }
+
+        .practice-warning-icon {
+            color: var(--accent-warning);
+            margin-right: var(--spacing-xs);
+        }
+
+        .practice-warning-text {
+            color: var(--text-secondary);
         }
 
         .dashboard-card {
@@ -314,6 +368,10 @@
                     </div>
                 </div>
 
+            </div>
+
+            <!-- Right Column -->
+            <div>
                 <!-- Performance Metrics -->
                 <div class="dashboard-card">
                     <h3 class="card-title">📈 Performance Metrics</h3>
@@ -343,40 +401,31 @@
                             <div class="metric-value negative" id="avgLoss">$0</div>
                         </div>
                     </div>
+                    
+                    <!-- Practice Account Warning -->
+                    <div class="practice-warning" id="practiceWarning">
+                        <span class="practice-warning-icon">⚠️</span>
+                        <span class="practice-warning-text">Practice Account - Statistics show zeros until funded account</span>
+                    </div>
                 </div>
             </div>
-
-            <!-- Right Column -->
-            <div>
-                <!-- Recent Trades -->
-                <div class="dashboard-card">
-                    <h3 class="card-title">💹 Recent Trades</h3>
-                    <div style="overflow-x: auto;">
-                        <table class="trade-table">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Side</th>
-                                    <th>Qty</th>
-                                    <th>Price</th>
-                                    <th>P&L</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tradesTableBody">
-                                <tr>
-                                    <td colspan="5" class="text-center text-secondary">No trades yet</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+        </div>
+        
+        <!-- Strategy & Activity Footer -->
+        <div class="strategy-footer">
+            <h3 class="card-title">🎯 Strategy & Activity</h3>
+            <div class="strategy-info">
+                <div class="strategy-line">
+                    <span class="strategy-label">Strategy:</span>
+                    <span class="strategy-value" id="strategyType">Loading...</span>
                 </div>
-
-                <!-- System Logs -->
-                <div class="dashboard-card">
-                    <h3 class="card-title">📋 System Logs</h3>
-                    <div class="logs-container" id="logsContainer">
-                        <div class="log-entry info">Waiting for logs...</div>
-                    </div>
+                <div class="strategy-line">
+                    <span class="strategy-label">Last:</span>
+                    <span class="strategy-value" id="lastActivity">No recent activity</span>
+                </div>
+                <div class="strategy-line">
+                    <span class="strategy-label">Status:</span>
+                    <span class="strategy-value" id="strategyStatus">Monitoring market conditions...</span>
                 </div>
             </div>
         </div>
@@ -420,7 +469,7 @@
         // Handle trades
         socket.on('trade', (trade) => {
             console.log('[UI] Received trade:', trade);
-            addTrade(trade);
+            handleTradeEvent(trade);
         });
 
         // Handle position updates
@@ -434,9 +483,12 @@
             updateMetrics(metrics);
         });
 
-        // Handle logs
+        // Handle logs (reduced functionality - no longer displayed)
         socket.on('log', (log) => {
-            addLog(log);
+            // Logs no longer displayed in UI, but still logged to console for debugging
+            if (log.level === 'error') {
+                console.error('[BOT LOG]', log.message);
+            }
         });
 
         // Update entire UI
@@ -446,17 +498,7 @@
             updatePosition(state.position);
             updateMetrics(state.metrics);
             updateMarketData(state.marketData);
-            
-            // Update trades table
-            const tbody = document.getElementById('tradesTableBody');
-            tbody.innerHTML = '';
-            if (state.trades.length > 0) {
-                state.trades.slice(-10).reverse().forEach(trade => {
-                    addTradeRow(trade);
-                });
-            } else {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary">No trades yet</td></tr>';
-            }
+            updateStrategyFooter(state);
         }
 
         // Update status
@@ -613,49 +655,81 @@
             }
         }
 
-        // Add trade to table
-        function addTrade(trade) {
-            addTradeRow(trade);
+        // Update strategy footer with dynamic information
+        function updateStrategyFooter(state) {
+            const strategyTypeEl = document.getElementById('strategyType');
+            const lastActivityEl = document.getElementById('lastActivity');
+            const strategyStatusEl = document.getElementById('strategyStatus');
             
-            // Remove old rows if more than 10
-            const tbody = document.getElementById('tradesTableBody');
-            while (tbody.children.length > 10) {
-                tbody.removeChild(tbody.lastChild);
+            // Update strategy type
+            if (state.strategy && state.strategy.type) {
+                const strategy = state.strategy;
+                let strategyDisplay = strategy.type;
+                
+                // Add strategy-specific parameters
+                if (strategy.type === 'TEST_TIME' && strategy.parameters) {
+                    strategyDisplay += ` (${strategy.parameters.intervalMinutes || 5}min intervals)`;
+                } else if (strategy.type === 'EMA_CROSSOVER' && strategy.parameters) {
+                    strategyDisplay += ` (EMA${strategy.parameters.emaFast || 6}/${strategy.parameters.emaSlow || 19})`;
+                } else if (strategy.type === 'ORB_RUBBER_BAND' && strategy.parameters) {
+                    strategyDisplay += ` (${strategy.parameters.session || 'NY'} session)`;
+                }
+                
+                strategyTypeEl.textContent = strategyDisplay;
+            } else {
+                strategyTypeEl.textContent = 'Unknown Strategy';
             }
+            
+            // Update last activity
+            if (state.trades && state.trades.length > 0) {
+                const lastTrade = state.trades[state.trades.length - 1];
+                const time = new Date(lastTrade.timestamp).toLocaleTimeString();
+                lastActivityEl.textContent = `${time} - ${lastTrade.side} ${lastTrade.quantity} ${lastTrade.instrument || 'MGC'} @${lastTrade.price.toFixed(1)}`;
+            } else if (state.position) {
+                // Show current position if no completed trades
+                const position = state.position;
+                lastActivityEl.textContent = `Position: ${position.side} ${position.positionSize || 1} ${position.instrument || 'MGC'} @${(position.averagePrice || position.entryPrice || 0).toFixed(1)}`;
+            } else {
+                lastActivityEl.textContent = 'No recent activity';
+            }
+            
+            // Update strategy status based on bot state
+            let statusText = 'Monitoring market conditions...';
+            if (state.status === 'trading') {
+                if (state.position) {
+                    if (state.strategy && state.strategy.type === 'TEST_TIME') {
+                        // Calculate exit time for TEST_TIME strategy
+                        const holdMinutes = state.strategy.parameters?.holdTimeMinutes || 3;
+                        statusText = `Position active, monitoring for ${holdMinutes}min hold period`;
+                    } else {
+                        statusText = 'Position active, monitoring exit conditions';
+                    }
+                } else {
+                    if (state.strategy && state.strategy.type === 'TEST_TIME') {
+                        const now = new Date();
+                        const currentMinutes = now.getMinutes();
+                        const intervalMinutes = state.strategy.parameters?.intervalMinutes || 5;
+                        const nextInterval = Math.ceil((currentMinutes + 1) / intervalMinutes) * intervalMinutes;
+                        const nextTime = nextInterval >= 60 ? `${now.getHours() + 1}:00` : `${now.getHours()}:${nextInterval.toString().padStart(2, '0')}`;
+                        statusText = `Waiting for next signal window at ${nextTime}`;
+                    } else {
+                        statusText = 'Monitoring for entry signals';
+                    }
+                }
+            } else if (state.status === 'stopped') {
+                statusText = 'Trading stopped';
+            } else if (state.status === 'paused') {
+                statusText = 'Trading paused';
+            }
+            
+            strategyStatusEl.textContent = statusText;
         }
 
-        function addTradeRow(trade) {
-            const tbody = document.getElementById('tradesTableBody');
-            const row = tbody.insertRow(0);
-            
-            const time = new Date(trade.timestamp).toLocaleTimeString();
-            const pnlClass = trade.pnl >= 0 ? 'positive' : 'negative';
-            
-            row.innerHTML = `
-                <td>${time}</td>
-                <td>${trade.side}</td>
-                <td>${trade.quantity}</td>
-                <td>$${trade.price.toFixed(1)}</td>
-                <td class="${pnlClass}">$${trade.pnl.toFixed(2)}</td>
-            `;
-        }
-
-        // Add log entry
-        function addLog(log) {
-            const container = document.getElementById('logsContainer');
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${log.level}`;
-            
-            const time = new Date(log.timestamp).toLocaleTimeString();
-            entry.textContent = `[${time}] ${log.message}`;
-            
-            container.appendChild(entry);
-            container.scrollTop = container.scrollHeight;
-            
-            // Keep only last 100 logs
-            while (container.children.length > 100) {
-                container.removeChild(container.firstChild);
-            }
+        // Handle trade events for strategy footer updates
+        function handleTradeEvent(trade) {
+            console.log('[UI] Trade event received:', trade);
+            // Trade events will trigger a state update which updates the strategy footer
+            // No need for separate trade table management
         }
 
         // Control functions
