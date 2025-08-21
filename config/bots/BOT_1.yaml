@@ -6,16 +6,20 @@ accountId: '9627376'
 testMode: false
 marketDataSource: LIVE
 strategy:
-  type: TEST_TIME
+  type: PDHPDLStrategy
   parameters:
-    intervalMinutes: 5
-    tradeDurationMinutes: 3
-    candleLookbackMinutes: 1
-    positionSize: 1
-    maxRiskPoints: 3
-    enableLogging: true
+    volumeConfirmationMultiplier: 1.5
+    breakoutBufferTicks: 2
+    enableBreakoutStrategy: true
+    enableFadeStrategy: true
+    requireVwapAlignment: true
+    minVolumeRatio: 1.5
+    stopNewSignalsAt: '20:55'
+    maxSignalsPerDay: 6
+    signalCooldownMs: 300000
+    candlePeriodMs: 300000
     dollarPerPoint: 10
-    riskRewardRatio: 1
+    riskRewardRatio: 2
 risk:
   dollarRiskPerTrade: 50
   maxConsecutiveLosses: 3

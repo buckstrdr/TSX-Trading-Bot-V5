@@ -1,9 +1,9 @@
 {
-  "currentPosition": "SHORT",
-  "positionOpenTime": "2025-08-19T20:40:02.215Z",
-  "lastTradeTime": "2025-08-19T20:40:02.215Z",
-  "tradesPlaced": 35,
-  "lastCloseTime": "2025-08-19T20:38:06.116Z",
-  "savedAt": "2025-08-19T20:40:02.216Z",
+  "currentPosition": null,
+  "positionOpenTime": null,
+  "lastTradeTime": "2025-08-20T16:25:00.995Z",
+  "tradesPlaced": 36,
+  "lastCloseTime": "2025-08-20T16:28:04.344Z",
+  "savedAt": "2025-08-20T16:28:03.639Z",
   "version": "1.0"
 }

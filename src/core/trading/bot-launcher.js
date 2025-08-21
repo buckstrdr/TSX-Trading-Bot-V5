@@ -443,6 +443,7 @@ let botState = {
     connected: false,
     position: null,
     trades: [],
+    strategy: null,  // Will be populated when config is loaded
     metrics: {
         totalTrades: 0,
         winRate: 0,
@@ -627,6 +628,35 @@ app.get('/api/state', (req, res) => {
             volume: bot.state.lastVolume || '--'
         };
         
+        // Update signal strength data from strategy if available
+        if (bot.strategy && typeof bot.strategy.getSignalStrengthDisplay === 'function') {
+            try {
+                const signalData = bot.strategy.getSignalStrengthDisplay();
+                
+                // Add debug info for strategy readiness
+                if (bot.strategy.getStrategyStatus && typeof bot.strategy.getStrategyStatus === 'function') {
+                    const strategyStatus = bot.strategy.getStrategyStatus();
+                    console.log('[STRATEGY DEBUG] Status:', JSON.stringify(strategyStatus, null, 2));
+                } else if (bot.strategy.state) {
+                    console.log('[STRATEGY DEBUG] Data Points:', bot.strategy.state.dataPointsCollected || 'unknown');
+                    console.log('[STRATEGY DEBUG] RTH Points:', bot.strategy.state.rthDataPointsToday || 'unknown');
+                    console.log('[STRATEGY DEBUG] PDH/PDL Valid:', bot.strategy.state.pdhPdlLevels?.validRthCalculation || 'unknown');
+                }
+                
+                if (signalData && botState.strategy) {
+                    botState.strategy.signalStrength = {
+                        breakout: signalData.scores?.breakout ? parseInt(signalData.scores.breakout.split('/')[0]) : 0,
+                        fade: signalData.scores?.fade ? parseInt(signalData.scores.fade.split('/')[0]) : 0,
+                        sweep: signalData.scores?.liquiditySweep ? parseInt(signalData.scores.liquiditySweep.split('/')[0]) : 0,
+                        overall: signalData.scores?.overall ? parseInt(signalData.scores.overall.split('/')[0]) : 0,
+                        alerts: signalData.alerts || []
+                    };
+                }
+            } catch (error) {
+                console.log('[SIGNAL ERROR] Error getting signal strength:', error.message);
+            }
+        }
+        
         // Sync position from strategy state
         if (bot.strategy.state && bot.strategy.state.currentPosition) {
             botState.position = {
@@ -666,6 +696,15 @@ async function initializeBot() {
         console.log(`Loading config from: ${configPath}`);
         const configContent = await fs.readFile(configPath, 'utf8');
         const config = yaml.load(configContent);
+        
+        // Update botState with strategy information
+        if (config.strategy) {
+            botState.strategy = {
+                type: config.strategy.type,
+                parameters: config.strategy.parameters || {}
+            };
+            console.log(`[CONFIG] Strategy loaded: ${config.strategy.type}`);
+        }
         
         // Add the botId and account to the config
         config.botId = botId;
@@ -855,6 +894,15 @@ async function startBot() {
         const config = yaml.load(configContent);
         console.log(`[STARTUP] Loaded config - instrument: ${config.instrument}, riskPerTrade: ${config.risk?.dollarRiskPerTrade}`);
         
+        // Update botState with strategy information
+        if (config.strategy) {
+            botState.strategy = {
+                type: config.strategy.type,
+                parameters: config.strategy.parameters || {}
+            };
+            console.log(`[STARTUP] Strategy loaded: ${config.strategy.type}`);
+        }
+        
         // Add the botId and account to the config
         config.botId = botId;
         config.account = account;
@@ -1029,6 +1077,24 @@ async function startBot() {
                 // Get current strategy position state
                 const currentStrategyPosition = bot.strategy.state?.currentPosition;
                 
+                // Update signal strength data from strategy if available
+                if (bot.strategy && typeof bot.strategy.getSignalStrengthDisplay === 'function') {
+                    try {
+                        const signalData = bot.strategy.getSignalStrengthDisplay();
+                        if (signalData && botState.strategy) {
+                            botState.strategy.signalStrength = {
+                                breakout: signalData.scores?.breakout ? parseInt(signalData.scores.breakout.split('/')[0]) : 0,
+                                fade: signalData.scores?.fade ? parseInt(signalData.scores.fade.split('/')[0]) : 0,
+                                sweep: signalData.scores?.liquiditySweep ? parseInt(signalData.scores.liquiditySweep.split('/')[0]) : 0,
+                                overall: signalData.scores?.overall ? parseInt(signalData.scores.overall.split('/')[0]) : 0,
+                                alerts: signalData.alerts || []
+                            };
+                        }
+                    } catch (error) {
+                        console.log('[SIGNAL ERROR]:', error.message);
+                    }
+                }
+                
                 // Sync position from strategy state - TEMPORARY: Always fetch position data for debugging
                 if (currentStrategyPosition || true) { // TEMP: Always try to fetch position data
                     console.log(`[UI SYNC] Strategy has position: ${currentStrategyPosition}`);
@@ -1161,21 +1227,28 @@ async function startBot() {
                         takeProfit = null;
                     }
                     
-                    botState.position = {
-                        side: currentStrategyPosition ? currentStrategyPosition.toLowerCase() : 'NONE',
-                        quantity: quantity,
-                        entryPrice: averagePrice,
-                        unrealizedPnL: unrealizedPnL,
-                        // Add rich userapi fields for UI
-                        averagePrice: averagePrice,
-                        profitAndLoss: unrealizedPnL,
-                        stopLoss: stopLoss,
-                        takeProfit: takeProfit,
-                        // Keep original field names for compatibility
-                        positionSize: quantity,
-                        instrument: bot.config?.instrument || 'MGC'
-                    };
-                    console.log(`[UI SYNC] Updated botState.position:`, botState.position);
+                    if (currentStrategyPosition && currentStrategyPosition !== 'NONE') {
+                        // Only create position object if there's an actual position
+                        botState.position = {
+                            side: currentStrategyPosition.toLowerCase(),
+                            quantity: quantity,
+                            entryPrice: averagePrice,
+                            unrealizedPnL: unrealizedPnL,
+                            // Add rich userapi fields for UI
+                            averagePrice: averagePrice,
+                            profitAndLoss: unrealizedPnL,
+                            stopLoss: stopLoss,
+                            takeProfit: takeProfit,
+                            // Keep original field names for compatibility
+                            positionSize: quantity,
+                            instrument: bot.config?.instrument || 'MGC'
+                        };
+                        console.log(`[UI SYNC] Updated botState.position:`, botState.position);
+                    } else {
+                        // No position - set to null
+                        botState.position = null;
+                        console.log(`[UI SYNC] No position - set botState.position to null`);
+                    }
                 } else {
                     // No position - check if we just closed a position
                     if (previousPositionState && botState.position) {

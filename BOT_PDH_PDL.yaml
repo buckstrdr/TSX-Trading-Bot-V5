@@ -1,0 +1,74 @@
+# TSX Trading Bot V5 - PDH/PDL Daily Flip Strategy Configuration
+# Compatible with JavaScript Framework Implementation
+
+bot:
+  name: "BOT_PDH_PDL"
+  strategy: "PDHPDLStrategy"
+  enabled: true
+  port: 3011
+
+strategy:
+  # Risk Management (handled by bot framework)
+  dollarRiskPerTrade: 100
+  dollarPerPoint: 10
+  maxRiskPoints: 3.0
+  riskRewardRatio: 2.0
+  
+  # PDH/PDL Specific Parameters
+  volumeConfirmationMultiplier: 1.5    # Volume must be 1.5x average for breakout confirmation
+  breakoutBufferTicks: 2               # Entry buffer above/below PDH/PDL (2 ticks = $2 for MGC)
+  atrMultiplier: 1.5                   # Stop loss = ATR × 1.5
+  minStopTicks: 8                      # Minimum stop distance (8 ticks = $8 for MGC)
+  maxStopTicks: 15                     # Maximum stop distance (15 ticks = $15 for MGC)
+  
+  # Strategy Selection
+  enableBreakoutStrategy: true         # Enable PDH/PDL breakout signals
+  enableFadeStrategy: true             # Enable PDH/PDL rejection/bounce signals
+  enableFlipZoneStrategy: false        # Disable flip zone strategy (not implemented yet)
+  
+  # Time-Based Settings
+  enableTimeDecay: true                # Reduce signal generation as 9 PM close approaches
+  stopNewSignalsAt: "20:55"           # Stop generating signals at 8:55 PM CT
+  
+  # Market Structure Filters
+  requireVwapAlignment: true           # Require price above VWAP for long signals
+  minVolumeRatio: 1.5                  # Minimum volume ratio for signal confirmation
+  enableMarketStructureFilter: true    # Enable market structure analysis
+  
+  # Contract Specifications (MGC - Micro Gold Futures)
+  tickSize: 0.1                        # $0.10 tick size for MGC
+  candlePeriodMs: 300000              # 5-minute candles (300,000 milliseconds)
+  
+  # Session Configuration
+  activeSessions:
+    - "NEW_YORK_MORNING"              # 9:30 AM - 11:30 AM ET (optimal breakout period)
+    - "NEW_YORK_AFTERNOON"            # 2:00 PM - 3:00 PM ET (fade strategy period)
+  
+  # Signal Quality Settings
+  signalCooldownMs: 300000            # 5-minute cooldown between signals
+  minSignalConfidence: "MEDIUM"        # Minimum confidence level for signal generation
+  maxSignalsPerDay: 6                  # Maximum signals to prevent overtrading
+  
+  # Performance Settings
+  maxCandleHistory: 200               # Maximum candles to keep in memory
+  indicatorUpdateFrequency: "ON_CANDLE_CLOSE"  # When to update technical indicators
+  
+# Additional Bot Configuration
+account:
+  practiceMode: true                  # Start in practice mode for validation
+  
+trading:
+  instrument: "MGC"                   # Micro Gold Futures
+  exchangeSession: "RTH"              # Regular Trading Hours only
+  
+risk:
+  maxDailyDrawdown: 0.03             # Stop trading at 3% daily drawdown
+  maxPositions: 1                    # One position at a time for PDH/PDL strategy
+  
+logging:
+  enableStrategyLogging: true        # Enable detailed strategy logging
+  logLevel: "INFO"                   # INFO, DEBUG, WARN, ERROR
+  
+notifications:
+  enableSignalAlerts: true           # Alert on signal generation
+  enablePositionAlerts: true         # Alert on position changes

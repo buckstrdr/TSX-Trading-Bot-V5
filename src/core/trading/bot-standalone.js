@@ -36,6 +36,7 @@ class StandaloneTradingBot {
             position: null,
             trades: [],
             signals: [],
+            strategy: null,  // Will be populated when config is loaded
             metrics: {
                 totalTrades: 0,
                 winningTrades: 0,
@@ -236,7 +237,21 @@ class StandaloneTradingBot {
         try {
             const configContent = await fs.readFile(CONFIG_PATH, 'utf8');
             this.config = yaml.load(configContent);
+            
+            // Update state with strategy information
+            if (this.config.strategy) {
+                this.state.strategy = {
+                    type: this.config.strategy.type,
+                    parameters: this.config.strategy.parameters || {}
+                };
+                this.log('info', `Strategy loaded: ${this.config.strategy.type}`);
+            }
+            
             this.log('info', `Configuration loaded for ${BOT_ID}`);
+            
+            // Broadcast full state update to all connected clients
+            this.broadcast('state', this.state);
+            
             return this.config;
         } catch (error) {
             this.log('error', `Failed to load configuration: ${error.message}`);

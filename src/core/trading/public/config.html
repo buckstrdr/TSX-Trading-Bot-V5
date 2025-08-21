@@ -389,6 +389,7 @@
                             <option value="EMA_RETRACE">EMA 9 Retracement Scalping</option>
                             <option value="ORB_RUBBER_BAND">Opening Range Breakout + Rubber Band Reversal</option>
                             <option value="TEST_TIME">Test Time Strategy - 5-minute interval testing</option>
+                            <option value="PDHPDLStrategy">PDH/PDL Daily Flip Strategy</option>
                         </select>
                     </div>
 
@@ -1471,6 +1472,84 @@
                         </div>
                     `;
                     break;
+
+                case 'PDHPDLStrategy':
+                    html = `
+                        <div class="info-box" style="margin-bottom: 20px;">
+                            <strong>PDH/PDL Daily Flip Strategy</strong> - Previous Day High/Low breakout and reversal strategy<br>
+                            • Trades breakouts above PDH (Previous Day High) and below PDL (Previous Day Low)<br>
+                            • Includes fade strategy for rejections at key levels<br>
+                            • Uses volume confirmation and market structure filters<br>
+                            • Optimized for MGC (Micro Gold Futures) with $10 per point value
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Volume Confirmation Multiplier</label>
+                                <input type="number" id="volumeConfirmationMultiplier" class="form-control" value="1.5" min="1.0" max="3.0" step="0.1">
+                                <div class="info-box">Volume must exceed this multiple of average for signal confirmation</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Breakout Buffer (ticks)</label>
+                                <input type="number" id="breakoutBufferTicks" class="form-control" value="2" min="1" max="10">
+                                <div class="info-box">Entry buffer above PDH or below PDL in ticks</div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" id="enableBreakoutStrategy" checked>
+                                    <label for="enableBreakoutStrategy">Enable Breakout Strategy</label>
+                                </div>
+                                <div class="info-box">Trade breakouts above PDH and below PDL</div>
+                            </div>
+                            <div class="form-group">
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" id="enableFadeStrategy" checked>
+                                    <label for="enableFadeStrategy">Enable Fade Strategy</label>
+                                </div>
+                                <div class="info-box">Trade reversals when price rejects PDH/PDL levels</div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" id="requireVwapAlignment" checked>
+                                    <label for="requireVwapAlignment">Require VWAP Alignment</label>
+                                </div>
+                                <div class="info-box">Only take long signals above VWAP, short signals below VWAP</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Min Volume Ratio</label>
+                                <input type="number" id="minVolumeRatio" class="form-control" value="1.5" min="1.0" max="3.0" step="0.1">
+                                <div class="info-box">Minimum volume ratio for signal generation</div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Stop New Signals At</label>
+                                <input type="time" id="stopNewSignalsAt" class="form-control" value="20:55">
+                                <div class="info-box">Stop generating signals at this time (CT)</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Max Signals Per Day</label>
+                                <input type="number" id="maxSignalsPerDay" class="form-control" value="6" min="1" max="20">
+                                <div class="info-box">Maximum signals to prevent overtrading</div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Signal Cooldown (ms)</label>
+                                <input type="number" id="signalCooldownMs" class="form-control" value="300000" min="60000" max="900000" step="60000">
+                                <div class="info-box">Minimum time between signals (5 minutes = 300000ms)</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Candle Period (ms)</label>
+                                <input type="number" id="candlePeriodMs" class="form-control" value="300000" min="60000" max="900000" step="60000">
+                                <div class="info-box">Candle timeframe for analysis (5 minutes = 300000ms)</div>
+                            </div>
+                        </div>
+                    `;
+                    break;
                     
             }
             
@@ -1682,6 +1761,23 @@
                         // Fixed parameters for test strategy
                         dollarPerPoint: 10,  // MGC: $10 per point
                         riskRewardRatio: 1   // 1:1 for testing
+                    };
+
+                case 'PDHPDLStrategy':
+                    return {
+                        volumeConfirmationMultiplier: parseFloat(document.getElementById('volumeConfirmationMultiplier').value),
+                        breakoutBufferTicks: parseInt(document.getElementById('breakoutBufferTicks').value),
+                        enableBreakoutStrategy: document.getElementById('enableBreakoutStrategy').checked,
+                        enableFadeStrategy: document.getElementById('enableFadeStrategy').checked,
+                        requireVwapAlignment: document.getElementById('requireVwapAlignment').checked,
+                        minVolumeRatio: parseFloat(document.getElementById('minVolumeRatio').value),
+                        stopNewSignalsAt: document.getElementById('stopNewSignalsAt').value,
+                        maxSignalsPerDay: parseInt(document.getElementById('maxSignalsPerDay').value),
+                        signalCooldownMs: parseInt(document.getElementById('signalCooldownMs').value),
+                        candlePeriodMs: parseInt(document.getElementById('candlePeriodMs').value),
+                        // Fixed parameters for PDH/PDL strategy
+                        dollarPerPoint: 10,  // MGC: $10 per point
+                        riskRewardRatio: 2   // 2:1 risk reward
                     };
                     
                 default:

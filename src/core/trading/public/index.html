@@ -308,6 +308,126 @@
             font-weight: 600;
             color: var(--text-primary);
         }
+
+        /* Signal Strength Display */
+        .signal-strength-section {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-top: var(--spacing-md);
+        }
+
+        .signal-strength-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+            padding-bottom: var(--spacing-sm);
+            border-bottom: 1px solid var(--border-default);
+        }
+
+        .signal-strength-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .alert-level {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .alert-level.low {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-success);
+            border: 1px solid var(--accent-success);
+        }
+
+        .alert-level.medium {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-warning);
+            border: 1px solid var(--accent-warning);
+        }
+
+        .alert-level.high {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-danger);
+            border: 1px solid var(--accent-danger);
+        }
+
+        .signal-strength-grid {
+            display: grid;
+            gap: var(--spacing-sm);
+        }
+
+        .signal-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-sm);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            gap: var(--spacing-md);
+        }
+
+        .signal-item.overall {
+            border: 1px solid var(--border-default);
+            background: var(--bg-primary);
+        }
+
+        .signal-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            min-width: 60px;
+        }
+
+        .signal-value {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            min-width: 35px;
+            text-align: center;
+        }
+
+        .signal-bar {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            margin: 0 var(--spacing-sm);
+        }
+
+        .signal-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-success) 0%, var(--accent-warning) 60%, var(--accent-danger) 100%);
+            border-radius: var(--radius-sm);
+            transition: width 0.3s ease;
+        }
+
+        .signal-alerts {
+            margin-top: var(--spacing-md);
+            padding-top: var(--spacing-sm);
+            border-top: 1px solid var(--border-default);
+            font-size: 0.875rem;
+        }
+
+        .signal-alert {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            margin-bottom: var(--spacing-xs);
+            border-radius: var(--radius-sm);
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 3px solid var(--accent-warning);
+            color: var(--text-secondary);
+        }
+
+        .signal-alert:last-child {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
@@ -426,6 +546,45 @@
                 <div class="strategy-line">
                     <span class="strategy-label">Status:</span>
                     <span class="strategy-value" id="strategyStatus">Monitoring market conditions...</span>
+                </div>
+                
+                <!-- Signal Strength Section -->
+                <div class="signal-strength-section" id="signalStrengthSection" style="display: none;">
+                    <div class="signal-strength-header">
+                        <span class="signal-strength-title">📊 Signal Strength</span>
+                        <span class="alert-level" id="alertLevel">LOW</span>
+                    </div>
+                    <div class="signal-strength-grid">
+                        <div class="signal-item">
+                            <span class="signal-label">Breakout:</span>
+                            <span class="signal-value" id="breakoutStrength">0/10</span>
+                            <div class="signal-bar">
+                                <div class="signal-bar-fill" id="breakoutBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="signal-item">
+                            <span class="signal-label">Fade:</span>
+                            <span class="signal-value" id="fadeStrength">0/10</span>
+                            <div class="signal-bar">
+                                <div class="signal-bar-fill" id="fadeBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="signal-item">
+                            <span class="signal-label">Sweep:</span>
+                            <span class="signal-value" id="sweepStrength">0/10</span>
+                            <div class="signal-bar">
+                                <div class="signal-bar-fill" id="sweepBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="signal-item overall">
+                            <span class="signal-label">Overall:</span>
+                            <span class="signal-value" id="overallStrength">0/10</span>
+                            <div class="signal-bar">
+                                <div class="signal-bar-fill" id="overallBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="signal-alerts" id="signalAlerts"></div>
                 </div>
             </div>
         </div>
@@ -673,6 +832,15 @@
                     strategyDisplay += ` (EMA${strategy.parameters.emaFast || 6}/${strategy.parameters.emaSlow || 19})`;
                 } else if (strategy.type === 'ORB_RUBBER_BAND' && strategy.parameters) {
                     strategyDisplay += ` (${strategy.parameters.session || 'NY'} session)`;
+                } else if (strategy.type === 'PDHPDLStrategy' && strategy.parameters) {
+                    strategyDisplay = 'PDH/PDL Daily Flip';
+                    if (strategy.parameters.enableBreakoutStrategy && strategy.parameters.enableFadeStrategy) {
+                        strategyDisplay += ' (Breakout + Fade)';
+                    } else if (strategy.parameters.enableBreakoutStrategy) {
+                        strategyDisplay += ' (Breakout Only)';
+                    } else if (strategy.parameters.enableFadeStrategy) {
+                        strategyDisplay += ' (Fade Only)';
+                    }
                 }
                 
                 strategyTypeEl.textContent = strategyDisplay;
@@ -723,6 +891,68 @@
             }
             
             strategyStatusEl.textContent = statusText;
+
+            // Update signal strength display if strategy supports it
+            updateSignalStrength(state);
+        }
+
+        // Update signal strength display for PDH/PDL strategy
+        function updateSignalStrength(state) {
+            const signalSection = document.getElementById('signalStrengthSection');
+            
+            // Show signal strength only for PDH/PDL strategy
+            if (state.strategy && state.strategy.type === 'PDHPDLStrategy') {
+                signalSection.style.display = 'block';
+                
+                // Get signal strength data from strategy state if available
+                const signalStrength = state.strategy.signalStrength || {};
+                
+                // Update individual signal values
+                const breakoutStrength = signalStrength.breakout || 0;
+                const fadeStrength = signalStrength.fade || 0;
+                const sweepStrength = signalStrength.sweep || 0;
+                const overallStrength = signalStrength.overall || 0;
+                
+                // Update signal values and bars
+                document.getElementById('breakoutStrength').textContent = `${breakoutStrength}/10`;
+                document.getElementById('breakoutBar').style.width = `${(breakoutStrength / 10) * 100}%`;
+                
+                document.getElementById('fadeStrength').textContent = `${fadeStrength}/10`;
+                document.getElementById('fadeBar').style.width = `${(fadeStrength / 10) * 100}%`;
+                
+                document.getElementById('sweepStrength').textContent = `${sweepStrength}/10`;
+                document.getElementById('sweepBar').style.width = `${(sweepStrength / 10) * 100}%`;
+                
+                document.getElementById('overallStrength').textContent = `${overallStrength}/10`;
+                document.getElementById('overallBar').style.width = `${(overallStrength / 10) * 100}%`;
+                
+                // Update alert level based on overall strength
+                const alertLevel = document.getElementById('alertLevel');
+                if (overallStrength >= 8) {
+                    alertLevel.textContent = 'HIGH';
+                    alertLevel.className = 'alert-level high';
+                } else if (overallStrength >= 5) {
+                    alertLevel.textContent = 'MEDIUM';
+                    alertLevel.className = 'alert-level medium';
+                } else {
+                    alertLevel.textContent = 'LOW';
+                    alertLevel.className = 'alert-level low';
+                }
+                
+                // Update signal alerts if available
+                const alertsContainer = document.getElementById('signalAlerts');
+                const alerts = signalStrength.alerts || [];
+                
+                if (alerts.length > 0) {
+                    alertsContainer.innerHTML = alerts.map(alert => 
+                        `<div class="signal-alert">${alert}</div>`
+                    ).join('');
+                } else {
+                    alertsContainer.innerHTML = '';
+                }
+            } else {
+                signalSection.style.display = 'none';
+            }
         }
 
         // Handle trade events for strategy footer updates

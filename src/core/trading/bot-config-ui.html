@@ -300,6 +300,7 @@
                             <option value="BOT_5">BOT_5 - Breakout Strategy</option>
                             <option value="BOT_6">BOT_6 - Range Trading</option>
                             <option value="TEST_ORB_BOT">TEST_ORB_BOT - ORB Rubber Band</option>
+                            <option value="BOT_PDH_PDL">BOT_PDH_PDL - PDH/PDL Daily Flip</option>
                         </select>
                     </div>
 
@@ -352,6 +353,7 @@
                             <option value="CON.F.US.MNQ.U25">MNQ - Micro E-mini Nasdaq</option>
                             <option value="CON.F.US.MYM.U25">MYM - Micro E-mini Dow</option>
                             <option value="CON.F.US.M2K.U25">M2K - Micro E-mini Russell</option>
+                            <option value="MGC">MGC - Micro Gold Futures</option>
                         </select>
                     </div>
 
@@ -393,6 +395,7 @@
                             <option value="">-- Select Strategy --</option>
                             <option value="EMA_CROSS">EMA Crossover</option>
                             <option value="ORB_RUBBER_BAND">ORB Rubber Band</option>
+                            <option value="PDHPDLStrategy">PDH/PDL Daily Flip Strategy</option>
                             <option value="SCALPING">Scalping</option>
                             <option value="TREND_FOLLOWING">Trend Following</option>
                             <option value="MEAN_REVERSION">Mean Reversion</option>
@@ -500,6 +503,21 @@
                     { id: 'volumeThreshold', label: 'Volume Threshold', type: 'number', default: 120, min: 50, max: 500 }
                 ]
             },
+            PDHPDLStrategy: {
+                title: 'PDH/PDL Daily Flip Strategy Parameters',
+                params: [
+                    { id: 'volumeConfirmationMultiplier', label: 'Volume Confirmation Multiplier', type: 'number', default: 1.5, min: 1.0, max: 3.0, step: 0.1 },
+                    { id: 'breakoutBufferTicks', label: 'Breakout Buffer (ticks)', type: 'number', default: 2, min: 1, max: 10 },
+                    { id: 'enableBreakoutStrategy', label: 'Enable Breakout Strategy', type: 'checkbox', default: true },
+                    { id: 'enableFadeStrategy', label: 'Enable Fade Strategy', type: 'checkbox', default: true },
+                    { id: 'requireVwapAlignment', label: 'Require VWAP Alignment', type: 'checkbox', default: true },
+                    { id: 'minVolumeRatio', label: 'Min Volume Ratio', type: 'number', default: 1.5, min: 1.0, max: 3.0, step: 0.1 },
+                    { id: 'stopNewSignalsAt', label: 'Stop New Signals At', type: 'time', default: '20:55' },
+                    { id: 'maxSignalsPerDay', label: 'Max Signals Per Day', type: 'number', default: 6, min: 1, max: 20 },
+                    { id: 'signalCooldownMs', label: 'Signal Cooldown (minutes)', type: 'number', default: 5, min: 1, max: 30 },
+                    { id: 'candlePeriodMs', label: 'Candle Period (minutes)', type: 'number', default: 5, min: 1, max: 60 }
+                ]
+            },
             SCALPING: {
                 title: 'Scalping Parameters',
                 params: [
@@ -537,7 +555,13 @@
                     setTimeout(() => {
                         for (const [key, value] of Object.entries(config.strategy.parameters || {})) {
                             const input = document.getElementById(`param_${key}`);
-                            if (input) input.value = value;
+                            if (input) {
+                                if (input.type === 'checkbox') {
+                                    input.checked = value;
+                                } else {
+                                    input.value = value;
+                                }
+                            }
                         }
                     }, 100);
                 }
@@ -579,18 +603,32 @@
             let html = `<h3>${template.title}</h3><div class="param-grid">`;
 
             template.params.forEach(param => {
-                html += `
-                    <div class="form-group">
-                        <label class="form-label">${param.label}</label>
-                        <input type="${param.type}" 
-                               id="param_${param.id}" 
-                               class="form-control" 
-                               value="${param.default}"
-                               min="${param.min || ''}"
-                               max="${param.max || ''}"
-                               step="${param.step || 1}">
-                    </div>
-                `;
+                if (param.type === 'checkbox') {
+                    html += `
+                        <div class="form-group">
+                            <div class="toggle-group">
+                                <label class="form-label">${param.label}</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="param_${param.id}" ${param.default ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="form-group">
+                            <label class="form-label">${param.label}</label>
+                            <input type="${param.type}" 
+                                   id="param_${param.id}" 
+                                   class="form-control" 
+                                   value="${param.default}"
+                                   min="${param.min || ''}"
+                                   max="${param.max || ''}"
+                                   step="${param.step || 1}">
+                        </div>
+                    `;
+                }
             });
 
             html += '</div>';
@@ -686,8 +724,13 @@
                 strategyTemplates[strategyType].params.forEach(param => {
                     const input = document.getElementById(`param_${param.id}`);
                     if (input) {
-                        config.strategy.parameters[param.id] = 
-                            param.type === 'number' ? parseFloat(input.value) : input.value;
+                        if (param.type === 'number') {
+                            config.strategy.parameters[param.id] = parseFloat(input.value);
+                        } else if (param.type === 'checkbox') {
+                            config.strategy.parameters[param.id] = input.checked;
+                        } else {
+                            config.strategy.parameters[param.id] = input.value;
+                        }
                     }
                 });
             }

@@ -1257,6 +1257,13 @@ class ConnectionManager extends EventEmitter {
                     await this.handleGetAccountSummaryRequest(data);
                     break;
                     
+                case 'REQUEST_HISTORICAL_DATA':
+                    // Extract payload and forward to historical data handler
+                    const historicalRequest = data.payload || data;
+                    console.log(`📊 Forwarding historical data request from connection-manager:requests`);
+                    await this.handleHistoricalDataRequest(historicalRequest);
+                    break;
+                    
                 default:
                     console.error(`❌ Unknown request type: ${type}`);
                     // Send error response

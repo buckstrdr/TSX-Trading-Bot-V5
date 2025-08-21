@@ -233,7 +233,8 @@ class TradingBot extends EventEmitter {
             'ORB_RUBBER_BAND': 'ORB_RUBBER_BAND',
             'EMA_RETRACEMENT': 'EMA_9_RETRACEMENT_SCALPING',
             'TEST_TIME': 'TEST_TIME_STRATEGY',
-            'TEST_TIME_STRATEGY': 'TEST_TIME_STRATEGY'
+            'TEST_TIME_STRATEGY': 'TEST_TIME_STRATEGY',
+            'PDHPDLStrategy': 'PDH_PDL_COMPREHENSIVE'
         };
         
         return strategyMap[yamlStrategyType] || 'EMA_9_RETRACEMENT_SCALPING';
@@ -315,6 +316,74 @@ class TradingBot extends EventEmitter {
                 // Logging
                 enableLogging: true
             };
+        } else if (strategyType === 'PDH_PDL_COMPREHENSIVE') {
+            return {
+                // Risk Management (handled by bot framework)
+                dollarRiskPerTrade: config.strategy?.dollarRiskPerTrade ?? 100,
+                dollarPerPoint: config.strategy?.dollarPerPoint ?? this.getInstrumentMultiplier(config.instrument),
+                maxRiskPoints: config.strategy?.maxRiskPoints ?? 3.0,
+                riskRewardRatio: config.strategy?.riskRewardRatio ?? 2.0,
+                
+                // PDH/PDL Specific Parameters
+                volumeConfirmationMultiplier: config.strategy?.volumeConfirmationMultiplier ?? 1.5,
+                breakoutBufferTicks: config.strategy?.breakoutBufferTicks ?? 2,
+                
+                // MGC-specific stop configurations
+                mgcBreakoutStopTicks: config.strategy?.mgcBreakoutStopTicks ?? 10,
+                mgcFadeStopTicks: config.strategy?.mgcFadeStopTicks ?? 8,
+                mgcLiquiditySweepStopTicks: config.strategy?.mgcLiquiditySweepStopTicks ?? 6,
+                
+                // Strategy Selection
+                enableBreakoutStrategy: config.strategy?.enableBreakoutStrategy !== false,
+                enableFadeStrategy: config.strategy?.enableFadeStrategy !== false,
+                enableLiquiditySweepStrategy: config.strategy?.enableLiquiditySweepStrategy !== false,
+                
+                // Time-Based Settings
+                enableTimeDecay: config.strategy?.enableTimeDecay !== false,
+                stopNewSignalsAt: config.strategy?.stopNewSignalsAt ?? "20:55",
+                
+                // Market Structure Filters
+                requireVwapAlignment: config.strategy?.requireVwapAlignment !== false,
+                minVolumeRatio: config.strategy?.minVolumeRatio ?? 1.5,
+                enableMarketStructureFilter: config.strategy?.enableMarketStructureFilter !== false,
+                
+                // Volume Profile Configuration
+                enableVolumeProfile: config.strategy?.enableVolumeProfile !== false,
+                volumeProfileBins: config.strategy?.volumeProfileBins ?? 50,
+                pocThreshold: config.strategy?.pocThreshold ?? 0.70,
+                hvnThreshold: config.strategy?.hvnThreshold ?? 1.5,
+                lvnThreshold: config.strategy?.lvnThreshold ?? 0.5,
+                
+                // Cumulative Delta Configuration
+                enableCumulativeDelta: config.strategy?.enableCumulativeDelta !== false,
+                cumulativeDeltaThreshold: config.strategy?.cumulativeDeltaThreshold ?? 0,
+                cumulativeDeltaPeriod: config.strategy?.cumulativeDeltaPeriod ?? 20,
+                
+                // ADX Configuration
+                adxPeriod: config.strategy?.adxPeriod ?? 14,
+                adxTrendingThreshold: config.strategy?.adxTrendingThreshold ?? 25,
+                adxRangingThreshold: config.strategy?.adxRangingThreshold ?? 20,
+                
+                // Liquidity Sweep Configuration
+                enableLiquiditySweeps: config.strategy?.enableLiquiditySweeps !== false,
+                liquiditySweepPenetrationTicks: config.strategy?.liquiditySweepPenetrationTicks ?? 3,
+                liquiditySweepReversalTicks: config.strategy?.liquiditySweepReversalTicks ?? 5,
+                liquiditySweepMaxBars: config.strategy?.liquiditySweepMaxBars ?? 3,
+                
+                // Time-Based Optimization
+                enableTimeBasedOptimization: config.strategy?.enableTimeBasedOptimization !== false,
+                
+                // Contract Specifications
+                tickSize: config.strategy?.tickSize ?? 0.1,
+                candlePeriodMs: config.strategy?.candlePeriodMs ?? 300000,
+                
+                // Signal Quality Settings
+                signalCooldownMs: config.strategy?.signalCooldownMs ?? 300000,
+                minSignalConfidence: config.strategy?.minSignalConfidence ?? "MEDIUM",
+                maxSignalsPerDay: config.strategy?.maxSignalsPerDay ?? 6,
+                maxCandleHistory: config.strategy?.maxCandleHistory ?? 200,
+                indicatorLookback: config.strategy?.indicatorLookback ?? 50
+            };
         }
         
         return {};
@@ -390,6 +459,9 @@ class TradingBot extends EventEmitter {
             } else if (strategyType === 'TEST_TIME_STRATEGY') {
                 const TestTimeStrategy = require('../../strategies/test/testTimeStrategy');
                 StrategyClass = TestTimeStrategy;
+            } else if (strategyType === 'PDH_PDL_COMPREHENSIVE') {
+                const PDHPDLStrategy = require('../../strategies/PDHPDLStrategy-Comprehensive');
+                StrategyClass = PDHPDLStrategy;
             } else {
                 throw new Error(`Unknown strategy type: ${strategyType}`);
             }
